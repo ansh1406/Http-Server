@@ -116,7 +116,8 @@ namespace http
     {
         const size_t MAX_HEADER_SIZE = 8192; // 8 KB
         const size_t MAX_BODY_SIZE = 10485760; // 10 MB
-        const size_t READ_BUFFER_SIZE = 4096; // 4 KB
+        const size_t READ_BUFFER_SIZE = 16384; // 16 KB
+        const size_t SINGLE_READ_SIZE = 4096; // 4 KB
         const size_t MAX_REQUEST_LINE = 8192; // 8 KB
     }
 
