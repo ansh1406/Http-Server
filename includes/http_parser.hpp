@@ -62,13 +62,13 @@ namespace http
     }
     namespace headers
     {
-        const std::string CONTENT_LENGTH = "Content-Length";
-        const std::string TRANSFER_ENCODING = "Transfer-Encoding";
-        const std::string CONNECTION = "Connection";
-        const std::string HOST = "Host";
-        const std::string USER_AGENT = "User-Agent";
-        const std::string ACCEPT = "Accept";
-        const std::string CONTENT_TYPE = "Content-Type";
+        const std::string CONTENT_LENGTH = "content-length";
+        const std::string TRANSFER_ENCODING = "transfer-encoding";
+        const std::string CONNECTION = "connection";
+        const std::string HOST = "host";
+        const std::string USER_AGENT = "user-agent";
+        const std::string ACCEPT = "accept";
+        const std::string CONTENT_TYPE = "content-type";
     }
     namespace methods
     {
