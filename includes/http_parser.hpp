@@ -13,6 +13,53 @@
 
 namespace http
 {
+
+    namespace exceptions{
+        class UnexpectedEndOfStream : public std::runtime_error {
+        public:
+            UnexpectedEndOfStream() : std::runtime_error("Unexpected end of stream") {}
+        };
+
+        class InvalidRequestLine : public std::runtime_error {
+        public:
+            InvalidRequestLine() : std::runtime_error("Invalid HTTP request line") {}
+        };
+
+        class RequestLineTooLong : public std::runtime_error {
+        public:
+            RequestLineTooLong() : std::runtime_error("HTTP request line too long") {}
+        };
+
+        class HeadersTooLarge : public std::runtime_error {
+        public:
+            HeadersTooLarge() : std::runtime_error("HTTP header too large") {}
+        };
+
+        class TransferEncodingWithoutChunked : public std::runtime_error {
+        public:
+            TransferEncodingWithoutChunked() : std::runtime_error("Transfer-Encoding header is present without 'chunked' value") {}
+        };
+
+        class InvalidContentLength : public std::runtime_error {
+        public:
+            InvalidContentLength() : std::runtime_error("Invalid Content-Length header value") {}
+        };
+
+        class MultipleContentLengthHeaders : public std::runtime_error {
+        public:
+            MultipleContentLengthHeaders() : std::runtime_error("Multiple Content-Length headers present") {}
+        };
+
+        class BothContentLengthAndChunked : public std::runtime_error {
+        public:
+            BothContentLengthAndChunked() : std::runtime_error("Both Content-Length and Transfer-Encoding headers present") {}
+        };
+
+        class PayloadTooLarge : public std::runtime_error {
+        public:
+            PayloadTooLarge() : std::runtime_error("Payload too large") {}
+        };
+    }
     namespace headers
     {
         const std::string CONTENT_LENGTH = "Content-Length";
