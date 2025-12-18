@@ -129,8 +129,8 @@ namespace tcp
         {
             return socket_fd.fd();
         }
-        void send_data(const std::vector<int8_t> &data);
-        std::vector<int8_t> receive_data(const size_t max_size = constants::MAX_BUFFER_SIZE);
+        void send_data(const std::vector<char> &data);
+        std::vector<char> receive_data(const size_t max_size = constants::MAX_BUFFER_SIZE);
     };
     class ListeningSocket
     {

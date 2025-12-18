@@ -92,11 +92,11 @@ tcp::ConnectionSocket tcp::ListeningSocket::accept_connection()
     return client_socket;
 }
 
-void tcp::ConnectionSocket::send_data(const std::vector<int8_t> &data)
+void tcp::ConnectionSocket::send_data(const std::vector<char> &data)
 {
     ssize_t total_sent = 0;
     ssize_t data_length = data.size();
-    const int8_t *data_ptr = data.data();
+    const char *data_ptr = data.data();
 
     while (total_sent < data_length)
     {
@@ -110,9 +110,9 @@ void tcp::ConnectionSocket::send_data(const std::vector<int8_t> &data)
     }
 }
 
-std::vector<int8_t> tcp::ConnectionSocket::receive_data(const size_t max_size)
+std::vector<char> tcp::ConnectionSocket::receive_data(const size_t max_size)
 {
-    std::vector<int8_t> buffer(max_size);
+    std::vector<char> buffer(max_size);
     ssize_t bytes_received = recv(socket_fd.fd(), buffer.data(), max_size, 0);
     if (bytes_received < 0)
     {
