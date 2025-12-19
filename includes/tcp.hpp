@@ -151,6 +151,13 @@ namespace tcp
 
     public:
         explicit ListeningSocket(const in_addr_t ip = constants::DEFAULT_ADDRESS, const Port port = constants::DEFAULT_PORT);
+
+        ListeningSocket(ListeningSocket &&) = default;
+        ListeningSocket &operator=(ListeningSocket &&) = default;
+
+        ListeningSocket(const ListeningSocket &) = delete;
+        ListeningSocket &operator=(const ListeningSocket &) = delete;
+        
         SocketHandle fd() const
         {
             return socket_fd.fd();
