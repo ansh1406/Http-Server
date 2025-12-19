@@ -94,6 +94,8 @@ namespace http
         const std::string HEAD = "HEAD";
         const std::string OPTIONS = "OPTIONS";
         const std::string PATCH = "PATCH";
+        const std::string TRACE = "TRACE";
+        const std::string CONNECT = "CONNECT";
     }
 
     namespace versions
@@ -129,11 +131,11 @@ namespace http
 
     namespace constants
     {
-        const size_t MAX_HEADER_SIZE = 8192; // 8 KB
+        const size_t MAX_HEADER_SIZE = 8192;   // 8 KB
         const size_t MAX_BODY_SIZE = 10485760; // 10 MB
         const size_t READ_BUFFER_SIZE = 16384; // 16 KB
-        const size_t SINGLE_READ_SIZE = 4096; // 4 KB
-        const size_t MAX_REQUEST_LINE = 8192; // 8 KB
+        const size_t SINGLE_READ_SIZE = 4096;  // 4 KB
+        const size_t MAX_REQUEST_LINE = 8192;  // 8 KB
     }
 
     class HttpRequestReader
