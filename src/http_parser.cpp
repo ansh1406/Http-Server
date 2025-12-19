@@ -273,3 +273,37 @@ void http::HttpRequestReader::read_from_tcp(tcp::ConnectionSocket &client_socket
         throw http::exceptions::UnexpectedEndOfStream();
     }
 }
+
+
+
+http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vector<char> &raw_request , size_t &pos){
+    http::HttpRequestLine request_line;
+    size_t start = pos;
+    // Find method
+    while (pos < raw_request.size() && raw_request[pos] != ' ')
+    {
+        pos++;
+    }
+    request_line.method = std::string(raw_request.begin() + start, raw_request.begin() + pos);
+    pos++;
+
+    // Find URI
+    start = pos;
+    while (pos < raw_request.size() && raw_request[pos] != ' ')
+    {
+        pos++;
+    }
+    request_line.uri = std::string(raw_request.begin() + start, raw_request.begin() + pos);
+    pos++;
+
+    // Find HTTP version
+    start = pos;
+    while (pos < raw_request.size() && raw_request[pos] != '\r')
+    {
+        pos++;
+    }
+    request_line.version = std::string(raw_request.begin() + start, raw_request.begin() + pos);
+    pos += 2;
+
+    return request_line;
+}

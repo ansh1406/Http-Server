@@ -146,9 +146,41 @@ namespace http
         long is_content_length_header(const size_t header_end_index);
         bool is_transfer_encoding_header(const size_t header_end_index);
         void read_from_tcp(tcp::ConnectionSocket &client_socket);
+
     public:
         HttpRequestReader() = default;
         std::vector<char> read(tcp::ConnectionSocket &client_socket);
+    };
+
+    class HttpRequest
+    {
+    private:
+        std::string method;
+        std::string uri;
+        std::string version;
+        std::map<std::string, std::string> headers;
+        std::vector<char> body;
+
+    public:
+        HttpRequest() = default;
+    };
+
+    struct HttpRequestLine
+    {
+        std::string method;
+        std::string uri;
+        std::string version;
+    };
+
+    class HttpRequestParser
+    {
+    private:
+        HttpRequestLine parse_request_line(const std::vector<char> &raw_request, size_t &pos);
+        std::map<std::string, std::string> parse_headers(const std::vector<char> &raw_request, size_t &pos);
+        std::vector<char> parse_body(const std::vector<char> &raw_request, size_t &pos , const std::map<std::string, std::string> &headers);
+
+    public:
+        static HttpRequest parse(const std::vector<char> &raw_request);
     };
 }
 
