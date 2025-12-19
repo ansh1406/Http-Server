@@ -133,10 +133,10 @@ namespace http
         bool validate_request_line(const std::vector<char> &request_line);
         long is_content_length_header(const size_t header_end_index);
         bool is_transfer_encoding_header(const size_t header_end_index);
+        void read_from_tcp(tcp::ConnectionSocket &client_socket);
     public:
         HttpRequestReader() = default;
         std::vector<char> read(tcp::ConnectionSocket &client_socket);
-        void clear_buffer();
     };
 }
 
