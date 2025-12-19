@@ -346,3 +346,38 @@ std::map<std::string, std::string> http::HttpRequestParser::parse_headers(const 
     }
     return headers;
 }
+
+std::vector<char> http::HttpRequestParser::parse_body(const std::vector<char> &raw_request, size_t &pos, const std::map<std::string, std::string> &headers)
+{
+    std::vector<char> body;
+    auto it = headers.find(http::headers::CONTENT_LENGTH);
+    if (it != headers.end())
+    {
+        size_t content_length = std::stoul(it->second);
+        body.insert(body.end(), raw_request.begin() + pos, raw_request.begin() + pos + content_length);
+        pos += content_length;
+    }
+    else if (headers.find(http::headers::TRANSFER_ENCODING) != headers.end())
+    {
+        while (true)
+        {
+            size_t start = pos;
+            while (pos < raw_request.size() && !(raw_request[pos] == '\r' && raw_request[pos + 1] == '\n'))
+            {
+                pos++;
+            }
+            std::string chunk_size_str(raw_request.begin() + start, raw_request.begin() + pos);
+            size_t chunk_size = std::stoul(chunk_size_str, nullptr, 16);
+            pos += 2;
+
+            if (chunk_size == 0)
+            {
+                break;
+            }
+
+            body.insert(body.end(), raw_request.begin() + pos, raw_request.begin() + pos + chunk_size);
+            pos += chunk_size + 2; // Skip CRLF
+        }
+    }
+    return body;
+}
