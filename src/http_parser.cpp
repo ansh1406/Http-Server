@@ -110,6 +110,83 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
                 remaining -= to_read;
             }
         }
+        else if (has_chunked_transfer_encoding)
+        {
+            while (true)
+            {
+                // Read chunk size line
+                std::vector<char> chunk_size_line;
+                while (true)
+                {
+                    size_t pos{0};
+                    bool found_end_of_chunk_size_line{false};
+                    for (; pos < buffer.size() - 1; pos++)
+                    {
+                        if (buffer[pos] == '\r' && buffer[pos + 1] == '\n') // End of chunk size line found
+                        {
+                            chunk_size_line.insert(chunk_size_line.end(), buffer.begin(), buffer.begin() + pos + 2);
+                            buffer.erase(buffer.begin(), buffer.begin() + pos + 2);
+                            found_end_of_chunk_size_line = true;
+                            break;
+                        }
+                    }
+                    if (found_end_of_chunk_size_line)
+                        break;
+                    temp_buffer.clear();
+                    temp_buffer = client_socket.receive_data(http::constants::SINGLE_READ_SIZE);
+                    if (temp_buffer.empty())
+                    {
+                        throw http::exceptions::UnexpectedEndOfStream();
+                    }
+                    buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
+                }
+                request_data.insert(request_data.end(), chunk_size_line.begin(), chunk_size_line.end());
+
+                std::string chunk_size_str(chunk_size_line.begin(), chunk_size_line.end());
+                size_t chunk_size = std::stoul(chunk_size_str, nullptr, 16);
+                if (chunk_size == 0)
+                {
+                    // Read the trailing CRLF after the last chunk
+                    size_t pos{0};
+                    bool found_end_of_last_crlf{false};
+                    for (; pos < buffer.size() - 1; pos++)
+                    {
+                        if (buffer[pos] == '\r' && buffer[pos + 1] == '\n') // End of last CRLF found
+                        {
+                            request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + pos + 2);
+                            buffer.erase(buffer.begin(), buffer.begin() + pos + 2);
+                            found_end_of_last_crlf = true;
+                            break;
+                        }
+                    }
+                    if(found_end_of_last_crlf)
+                        break;
+                    temp_buffer.clear();
+                    temp_buffer = client_socket.receive_data(http::constants::SINGLE_READ_SIZE);
+                    if (temp_buffer.empty())
+                    {
+                        throw http::exceptions::UnexpectedEndOfStream();
+                    }
+                    buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
+                }
+
+                // Read the chunk data plus the trailing CRLF
+                size_t remaining = chunk_size + 2; // +2 for CRLF
+                while (remaining > 0)
+                {
+                    temp_buffer.clear();
+                    temp_buffer = client_socket.receive_data(http::constants::SINGLE_READ_SIZE);
+                    if (temp_buffer.empty())
+                    {
+                        throw http::exceptions::UnexpectedEndOfStream();
+                    }
+                    size_t to_read = std::min(remaining, temp_buffer.size());
+                    request_data.insert(request_data.end(), temp_buffer.begin(), temp_buffer.begin() + to_read);
+                    buffer.insert(buffer.end(), temp_buffer.begin() + to_read, temp_buffer.end());
+                    remaining -= to_read;
+                }
+            }
+        }
     }
 }
 

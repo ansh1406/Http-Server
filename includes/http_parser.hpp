@@ -55,6 +55,11 @@ namespace http
             BothContentLengthAndChunked() : std::runtime_error("Both Content-Length and Transfer-Encoding headers present") {}
         };
 
+        class InvalidChunkedEncoding : public std::runtime_error {
+        public:
+            InvalidChunkedEncoding() : std::runtime_error("Invalid chunked encoding") {}
+        };
+
         class PayloadTooLarge : public std::runtime_error {
         public:
             PayloadTooLarge() : std::runtime_error("Payload too large") {}
