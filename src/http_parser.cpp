@@ -274,9 +274,8 @@ void http::HttpRequestReader::read_from_tcp(tcp::ConnectionSocket &client_socket
     }
 }
 
-
-
-http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vector<char> &raw_request , size_t &pos){
+http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vector<char> &raw_request, size_t &pos)
+{
     http::HttpRequestLine request_line;
     size_t start = pos;
     // Find method
@@ -298,7 +297,7 @@ http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vec
 
     // Find HTTP version
     start = pos;
-    while (pos < raw_request.size() && raw_request[pos] != '\r')
+    while (pos < raw_request.size() && !(raw_request[pos] == '\r' && raw_request[pos + 1] == '\n'))
     {
         pos++;
     }
@@ -306,4 +305,41 @@ http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vec
     pos += 2;
 
     return request_line;
+}
+
+std::map<std::string, std::string> http::HttpRequestParser::parse_headers(const std::vector<char> &raw_request, size_t &pos)
+{
+    std::map<std::string, std::string> headers;
+    while (pos < raw_request.size())
+    {
+        if (raw_request[pos] == '\r' && raw_request[pos + 1] == '\n')
+        {
+            pos += 2;
+            break;
+        }
+
+        size_t start = pos;
+        while (pos < raw_request.size() && raw_request[pos] != ':')
+        {
+            pos++;
+        }
+        std::string key = std::string(raw_request.begin() + start, raw_request.begin() + pos);
+        pos++;
+
+        while (pos < raw_request.size() && (raw_request[pos] == ' ' || raw_request[pos] == '\t'))
+        {
+            pos++;
+        }
+
+        start = pos;
+        while (pos < raw_request.size() && !(raw_request[pos] == '\r' && raw_request[pos + 1] == '\n'))
+        {
+            pos++;
+        }
+        std::string value = std::string(raw_request.begin() + start, raw_request.begin() + pos);
+        pos += 2;
+
+        headers[key] = value;
+    }
+    return headers;
 }
