@@ -3,16 +3,16 @@
 std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_socket)
 {
     std::vector<char> request_data;
-    std::vector<char> temp_buffer(http::constants::READ_BUFFER_SIZE);
+    std::vector<char> temp_buffer;
     bool request_has_body{false};
     bool has_chunked_transfer_encoding{false};
     long content_length{-1};
     // For reading the request line
     while (true) // Read until we find the end of the request line
     {
-        size_t pos{0};
+        long pos{0};
         bool found_end_of_request_line{false};
-        for (; pos < buffer.size() - 1; pos++)
+        for (; pos < (long)buffer.size() - 1; pos++)
         {
             if (buffer[pos] == '\r' && buffer[pos + 1] == '\n') // End of request line found
             {
@@ -37,23 +37,23 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
         }
         buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
     }
+
     if (!validate_request_line(request_data))
     {
         throw http::exceptions::InvalidRequestLine();
     }
 
     // Read the headers
+    long header_start = request_data.size();
     while (true)
     {
-        size_t pos{0};
+        long pos{0};
         bool found_end_of_headers{false};
-        for (; pos < buffer.size() - 3; pos++)
+        for (; pos < (long)buffer.size() - 1; pos++)
         {
+
             if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
             {
-                request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + pos + 2);
-                buffer.erase(buffer.begin(), buffer.begin() + pos + 2);
-
                 long content_length_from_header = is_content_length_header(pos);
                 if (content_length != -1 && content_length_from_header != -1)
                 {
@@ -69,20 +69,30 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
                     has_chunked_transfer_encoding = true;
                     request_has_body = true;
                 }
-                if (buffer[pos + 2] == '\r' && buffer[pos + 3] == '\n') // End of header found
+                request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + pos + 2);
+                buffer.erase(buffer.begin(), buffer.begin() + pos + 2);
+                if (pos == 0) // Empty line found, end of headers
                 {
-                    request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + pos + 2);
                     found_end_of_headers = true;
                     break;
                 }
+                pos = -1; // Reset pos for next header line
             }
-            if (pos >= http::constants::MAX_HEADER_SIZE)
+
+            if ((long)request_data.size() - header_start >= http::constants::MAX_HEADER_SIZE)
             {
                 throw http::exceptions::HeadersTooLarge();
             }
         }
         if (found_end_of_headers)
             break;
+        temp_buffer.clear();
+        temp_buffer = client_socket.receive_data(http::constants::SINGLE_READ_SIZE);
+        if (temp_buffer.empty())
+        {
+            throw http::exceptions::UnexpectedEndOfStream();
+        }
+        buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
     }
 
     // Read the body if present
@@ -98,16 +108,21 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
             size_t remaining = content_length;
             while (remaining > 0)
             {
+                size_t to_read = std::min(remaining, buffer.size());
+                request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + to_read);
+                buffer.erase(buffer.begin(), buffer.begin() + to_read);
+                remaining -= to_read;
+
+                if (remaining == 0)
+                    break;
+
                 temp_buffer.clear();
                 temp_buffer = client_socket.receive_data(http::constants::SINGLE_READ_SIZE);
                 if (temp_buffer.empty())
                 {
                     throw http::exceptions::UnexpectedEndOfStream();
                 }
-                size_t to_read = std::min(remaining, temp_buffer.size());
-                request_data.insert(request_data.end(), temp_buffer.begin(), temp_buffer.begin() + to_read);
-                buffer.insert(buffer.end(), temp_buffer.begin() + to_read, temp_buffer.end());
-                remaining -= to_read;
+                buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
             }
         }
         else if (has_chunked_transfer_encoding)
@@ -118,9 +133,9 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
                 std::vector<char> chunk_size_line;
                 while (true)
                 {
-                    size_t pos{0};
+                    long pos{0};
                     bool found_end_of_chunk_size_line{false};
-                    for (; pos < buffer.size() - 1; pos++)
+                    for (; pos < (long)buffer.size() - 1; pos++)
                     {
                         if (buffer[pos] == '\r' && buffer[pos + 1] == '\n') // End of chunk size line found
                         {
@@ -144,23 +159,18 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
 
                 std::string chunk_size_str(chunk_size_line.begin(), chunk_size_line.end());
                 size_t chunk_size = std::stoul(chunk_size_str, nullptr, 16);
-                if (chunk_size == 0)
+
+                // Read the chunk data plus the trailing CRLF
+                size_t remaining = chunk_size + 2; // +2 for CRLF
+                while (remaining > 0)
                 {
-                    // Read the trailing CRLF after the last chunk
-                    size_t pos{0};
-                    bool found_end_of_last_crlf{false};
-                    for (; pos < buffer.size() - 1; pos++)
-                    {
-                        if (buffer[pos] == '\r' && buffer[pos + 1] == '\n') // End of last CRLF found
-                        {
-                            request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + pos + 2);
-                            buffer.erase(buffer.begin(), buffer.begin() + pos + 2);
-                            found_end_of_last_crlf = true;
-                            break;
-                        }
-                    }
-                    if(found_end_of_last_crlf)
+                    size_t to_read = std::min(remaining, buffer.size());
+                    request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + to_read);
+                    buffer.erase(buffer.begin(), buffer.begin() + to_read);
+                    remaining -= to_read;
+                    if (remaining == 0)
                         break;
+
                     temp_buffer.clear();
                     temp_buffer = client_socket.receive_data(http::constants::SINGLE_READ_SIZE);
                     if (temp_buffer.empty())
@@ -169,25 +179,14 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
                     }
                     buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
                 }
-
-                // Read the chunk data plus the trailing CRLF
-                size_t remaining = chunk_size + 2; // +2 for CRLF
-                while (remaining > 0)
+                if (chunk_size == 0)
                 {
-                    temp_buffer.clear();
-                    temp_buffer = client_socket.receive_data(http::constants::SINGLE_READ_SIZE);
-                    if (temp_buffer.empty())
-                    {
-                        throw http::exceptions::UnexpectedEndOfStream();
-                    }
-                    size_t to_read = std::min(remaining, temp_buffer.size());
-                    request_data.insert(request_data.end(), temp_buffer.begin(), temp_buffer.begin() + to_read);
-                    buffer.insert(buffer.end(), temp_buffer.begin() + to_read, temp_buffer.end());
-                    remaining -= to_read;
+                    break; // Last chunk
                 }
             }
         }
     }
+    return request_data;
 }
 
 bool http::HttpRequestReader::validate_request_line(const std::vector<char> &request_line)
