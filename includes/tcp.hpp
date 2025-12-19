@@ -125,6 +125,13 @@ namespace tcp
 
     public:
         explicit ConnectionSocket(const SocketHandle handle) : socket_fd(handle) {}
+
+        ConnectionSocket(ConnectionSocket &&) = default;
+        ConnectionSocket &operator=(ConnectionSocket &&) = default;
+
+        ConnectionSocket(const ConnectionSocket &) = delete;
+        ConnectionSocket &operator=(const ConnectionSocket &) = delete;
+
         SocketHandle fd() const
         {
             return socket_fd.fd();
