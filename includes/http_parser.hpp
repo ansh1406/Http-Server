@@ -75,6 +75,12 @@ namespace http
         public:
             PayloadTooLarge() : std::runtime_error("Payload too large") {}
         };
+
+        class CanNotSendResponse : public std::runtime_error
+        {
+        public:
+            CanNotSendResponse() : std::runtime_error("Unable to send HTTP response") {}
+        };
     }
     namespace headers
     {

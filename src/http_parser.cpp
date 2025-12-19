@@ -195,7 +195,8 @@ bool http::HttpRequestReader::is_transfer_encoding_header(const size_t header_en
     }
 
     std::string key = header_line.substr(0, colon_pos);
-    for(auto & c : key) c = std::tolower(c);
+    for (auto &c : key)
+        c = std::tolower(c);
     std::string value = header_line.substr(colon_pos + 1);
 
     while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
@@ -230,7 +231,8 @@ long http::HttpRequestReader::is_content_length_header(const size_t header_end_i
         return -1;
     }
     std::string key = header_line.substr(0, colon_pos);
-    for(auto & c : key) c = std::tolower(c);
+    for (auto &c : key)
+        c = std::tolower(c);
     std::string value = header_line.substr(colon_pos + 1);
     while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
         value.erase(value.begin());
@@ -326,7 +328,8 @@ std::map<std::string, std::string> http::HttpRequestParser::parse_headers(const 
             pos++;
         }
         std::string key = std::string(raw_request.begin() + start, raw_request.begin() + pos);
-        for(auto & c : key) c = std::tolower(c);
+        for (auto &c : key)
+            c = std::tolower(c);
         pos++;
 
         while (pos < raw_request.size() && (raw_request[pos] == ' ' || raw_request[pos] == '\t'))
@@ -396,19 +399,27 @@ http::HttpRequest http::HttpRequestParser::parse(const std::vector<char> &raw_re
 
 void http::HttpResponse::send(tcp::ConnectionSocket &client_socket)
 {
-    std::string status_line = _version + " " + std::to_string(_status_code) + " " + _status_message+ "\r\n";
-    client_socket.send_data(std::vector<char>(status_line.begin(), status_line.end()));
-
-    for (const auto &header : _headers)
+    try
     {
-        std::string header_line = header.first + ": " + header.second + "\r\n";
-        client_socket.send_data(std::vector<char>(header_line.begin(), header_line.end()));
+        std::string status_line = _version + " " + std::to_string(_status_code) + " " + _status_message + "\r\n";
+        client_socket.send_data(std::vector<char>(status_line.begin(), status_line.end()));
+
+        for (const auto &header : _headers)
+        {
+            std::string header_line = header.first + ": " + header.second + "\r\n";
+            client_socket.send_data(std::vector<char>(header_line.begin(), header_line.end()));
+        }
+
+        client_socket.send_data(std::vector<char>({'\r', '\n'}));
+
+        if (!_body.empty())
+        {
+            client_socket.send_data(_body);
+        }
     }
-
-    client_socket.send_data(std::vector<char>({'\r', '\n'}));
-
-    if (!_body.empty())
+    catch (const tcp::exceptions::CanNotSendData &e)
     {
-        client_socket.send_data(_body);
+        std::cerr << "Error sending data: " << e.what() << std::endl;
+        throw http::exceptions::CanNotSendResponse();
     }
 }
