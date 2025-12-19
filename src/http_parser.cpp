@@ -381,3 +381,15 @@ std::vector<char> http::HttpRequestParser::parse_body(const std::vector<char> &r
     }
     return body;
 }
+
+http::HttpRequest http::HttpRequestParser::parse(const std::vector<char> &raw_request)
+{
+    size_t pos = 0;
+
+    auto request_line = parse_request_line(raw_request, pos);
+    auto headers = parse_headers(raw_request, pos);
+    auto body = parse_body(raw_request, pos, headers);
+
+    http::HttpRequest request(request_line.method, request_line.uri, request_line.version, headers, body);
+    return request;
+}

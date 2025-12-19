@@ -156,14 +156,25 @@ namespace http
     class HttpRequest
     {
     private:
-        std::string method;
-        std::string uri;
-        std::string version;
-        std::map<std::string, std::string> headers;
-        std::vector<char> body;
+        std::string _method;
+        std::string _uri;
+        std::string _version;
+        std::map<std::string, std::string> _headers;
+        std::vector<char> _body;
 
     public:
-        HttpRequest() = default;
+        HttpRequest(const std::string &method,
+                    const std::string &uri,
+                    const std::string &version,
+                    const std::map<std::string, std::string> &headers,
+                    const std::vector<char> &body)
+            : _method(method), _uri(uri), _version(version), _headers(headers), _body(body) {}
+
+        const std::string &method() const { return _method; }
+        const std::string &uri() const { return _uri; }
+        const std::string &version() const { return _version; }
+        const std::map<std::string, std::string> &headers() const { return _headers; }
+        const std::vector<char> &body() const { return _body; }
     };
 
     struct HttpRequestLine
@@ -176,9 +187,9 @@ namespace http
     class HttpRequestParser
     {
     private:
-        HttpRequestLine parse_request_line(const std::vector<char> &raw_request, size_t &pos);
-        std::map<std::string, std::string> parse_headers(const std::vector<char> &raw_request, size_t &pos);
-        std::vector<char> parse_body(const std::vector<char> &raw_request, size_t &pos , const std::map<std::string, std::string> &headers);
+        static HttpRequestLine parse_request_line(const std::vector<char> &raw_request, size_t &pos);
+        static std::map<std::string, std::string> parse_headers(const std::vector<char> &raw_request, size_t &pos);
+        static std::vector<char> parse_body(const std::vector<char> &raw_request, size_t &pos, const std::map<std::string, std::string> &headers);
 
     public:
         static HttpRequest parse(const std::vector<char> &raw_request);
