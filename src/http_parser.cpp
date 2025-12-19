@@ -195,6 +195,7 @@ bool http::HttpRequestReader::is_transfer_encoding_header(const size_t header_en
     }
 
     std::string key = header_line.substr(0, colon_pos);
+    for(auto & c : key) c = std::tolower(c);
     std::string value = header_line.substr(colon_pos + 1);
 
     while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
@@ -229,6 +230,7 @@ long http::HttpRequestReader::is_content_length_header(const size_t header_end_i
         return -1;
     }
     std::string key = header_line.substr(0, colon_pos);
+    for(auto & c : key) c = std::tolower(c);
     std::string value = header_line.substr(colon_pos + 1);
     while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
         value.erase(value.begin());
@@ -324,6 +326,7 @@ std::map<std::string, std::string> http::HttpRequestParser::parse_headers(const 
             pos++;
         }
         std::string key = std::string(raw_request.begin() + start, raw_request.begin() + pos);
+        for(auto & c : key) c = std::tolower(c);
         pos++;
 
         while (pos < raw_request.size() && (raw_request[pos] == ' ' || raw_request[pos] == '\t'))

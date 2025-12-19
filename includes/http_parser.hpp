@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <algorithm>
+#include <cctype>
 
 namespace http
 {
