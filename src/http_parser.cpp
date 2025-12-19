@@ -6,7 +6,7 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
     std::vector<char> temp_buffer(http::constants::READ_BUFFER_SIZE);
     bool request_has_body{false};
     bool has_chunked_transfer_encoding{false};
-    size_t content_length{-1};
+    long content_length{-1};
     // For reading the request line
     while (true) // Read until we find the end of the request line
     {
@@ -54,7 +54,7 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
                 request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + pos + 2);
                 buffer.erase(buffer.begin(), buffer.begin() + pos + 2);
 
-                size_t content_length_from_header = is_content_length_header(pos);
+                long content_length_from_header = is_content_length_header(pos);
                 if (content_length != -1 && content_length_from_header != -1)
                 {
                     throw http::exceptions::MultipleContentLengthHeaders();
@@ -240,7 +240,7 @@ bool http::HttpRequestReader::is_transfer_encoding_header(const size_t header_en
     return false;
 }
 
-size_t http::HttpRequestReader::is_content_length_header(const size_t header_end_index)
+long http::HttpRequestReader::is_content_length_header(const size_t header_end_index)
 {
     size_t header_start = 0;
     std::string header_line(buffer.begin() + header_start, buffer.begin() + header_end_index);

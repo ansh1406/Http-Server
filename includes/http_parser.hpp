@@ -131,7 +131,7 @@ namespace http
     private:
         std::vector<char> buffer;
         bool validate_request_line(const std::vector<char> &request_line);
-        size_t is_content_length_header(const size_t header_end_index);
+        long is_content_length_header(const size_t header_end_index);
         bool is_transfer_encoding_header(const size_t header_end_index);
     public:
         HttpRequestReader() = default;
