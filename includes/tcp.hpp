@@ -22,7 +22,6 @@ namespace tcp
     {
         const SocketHandle INVALID_SOCKET = -1;
         const int SOCKET_ERROR = -1;
-        const Port DEFAULT_PORT = 51234;
         const in_addr_t DEFAULT_ADDRESS = INADDR_ANY;
         const int BACKLOG = 128;
         const ssize_t MAX_BUFFER_SIZE = 4096;
@@ -150,7 +149,8 @@ namespace tcp
         SocketFD socket_fd;
 
     public:
-        explicit ListeningSocket(const in_addr_t ip = constants::DEFAULT_ADDRESS, const Port port = constants::DEFAULT_PORT);
+        explicit ListeningSocket(const in_addr_t ip, const Port port);
+        explicit ListeningSocket(const Port port) : ListeningSocket(constants::DEFAULT_ADDRESS, port) {}
 
         ListeningSocket(ListeningSocket &&) = default;
         ListeningSocket &operator=(ListeningSocket &&) = default;
