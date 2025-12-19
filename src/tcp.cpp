@@ -120,5 +120,6 @@ std::vector<char> tcp::ConnectionSocket::receive_data(const size_t max_size)
         throw tcp::exceptions::CanNotReceiveData{std::string(strerror(err))};
     }
     /// @todo : Watch for EINTR and EAGAIN
+    buffer.resize(bytes_received);
     return buffer;
 }
