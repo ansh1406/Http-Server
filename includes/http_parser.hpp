@@ -82,9 +82,7 @@ namespace http
         const std::string TRANSFER_ENCODING = "transfer-encoding";
         const std::string CONNECTION = "connection";
         const std::string HOST = "host";
-        const std::string USER_AGENT = "user-agent";
-        const std::string ACCEPT = "accept";
-        const std::string CONTENT_TYPE = "content-type";
+        const std::string EXPECT = "expect";
     }
     namespace methods
     {
@@ -121,14 +119,6 @@ namespace http
         const int SERVICE_UNAVAILABLE = 503;
     }
 
-    namespace content_types
-    {
-        const std::string TEXT_HTML = "text/html";
-        const std::string APPLICATION_JSON = "application/json";
-        const std::string TEXT_PLAIN = "text/plain";
-        const std::string APPLICATION_XML = "application/xml";
-        const std::string MULTIPART_FORM_DATA = "multipart/form-data";
-    }
 
     namespace constants
     {
