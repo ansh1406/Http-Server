@@ -209,19 +209,23 @@ namespace http
 
         HttpResponse() = default;
 
+        explicit HttpResponse(int status_code,
+                              const std::string &status_message)
+            : _version(versions::HTTP_1_1), _status_code(status_code), _status_message(status_message) {}
+
         const std::string &version() const { return _version; }
         int status_code() const { return _status_code; }
         const std::string &status_message() const { return _status_message; }
         const std::map<std::string, std::string> &headers() const { return _headers; }
         const std::vector<char> &body() const { return _body; }
-        void send(tcp::ConnectionSocket &client_socket);
+        static void send(const HttpResponse &response , tcp::ConnectionSocket &client_socket);
 
         void set_version(const std::string &version) { _version = version; }
         void set_status_code(int status_code) { _status_code = status_code; }
         void set_status_message(const std::string &status_message) { _status_message = status_message; }
         void set_headers(const std::map<std::string, std::string> &headers) { _headers = headers; }
         void set_body(const std::vector<char> &body) { _body = body; }
-    };
+        };
 }
 
 #endif
