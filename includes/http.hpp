@@ -8,6 +8,7 @@
 #include <map>
 #include <vector>
 #include <stdexcept>
+#include <functional>
 
 namespace http
 {
@@ -67,12 +68,22 @@ namespace http
                 return "500 Internal Server Error";
             }
         };
+
+        class NotFound : public std::exception
+        {
+        public:
+            const char *what() const noexcept override
+            {
+                return "404 Not Found";
+            }
+        };
     }
 
     class HttpServer
     {
     private:
         tcp::ListeningSocket server_socket;
+        std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest & , http::HttpResponse &)>> route_handlers;
 
     public:
         explicit HttpServer(tcp::Port port);
@@ -84,6 +95,8 @@ namespace http
         HttpServer &operator=(HttpServer &&) = default;
 
         void start();
+        void add_route_handler(const std::string &method, const std::string &path,
+                               const std::function<void(const http::HttpRequest &, http::HttpResponse &)> &handler);
     };
 
     class HttpConnection
@@ -103,7 +116,8 @@ namespace http
         HttpConnection(HttpConnection &&) = default;
         HttpConnection &operator=(HttpConnection &&) = default;
 
-        void handle();
+        void handle(std::map<std::pair<std::string, std::string>,
+                        std::function<void(const http::HttpRequest & , http::HttpResponse &)>> &route_handlers);
         void send_response(const http::HttpResponse &response);
 
         std::string get_ip() const

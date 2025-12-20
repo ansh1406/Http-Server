@@ -29,7 +29,7 @@ void http::HttpServer::start()
             std::cout << "Connection accepted." << std::endl;
             std::cout << "Ip: " << connection.get_ip() << std::endl;
             std::cout << "Port: " << connection.get_port() << std::endl;
-            connection.handle();
+            connection.handle(route_handlers);
         }
         catch (const tcp::exceptions::CanNotAcceptConnection &e)
         {
@@ -46,6 +46,11 @@ void http::HttpServer::start()
             std::cerr << "Unexpected error: " << e.what() << std::endl;
             continue;
         }
+        catch (...)
+        {
+            std::cerr << "Unknown unexpected error." << std::endl;
+            continue;
+        }
     }
 }
 
@@ -59,7 +64,7 @@ http::HttpResponse mock_response_generator()
     return response;
 }
 
-void http::HttpConnection::handle()
+void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers)
 {
     std::vector<char> raw_request;
     try
@@ -135,9 +140,15 @@ void http::HttpConnection::handle()
 
     HttpRequest request = request_parser.parse(raw_request);
 
-    // Implement request handling logic here
+    std::string path = http::HttpRequestParser::path_from_uri(request.uri());
+    if (route_handlers.find({request.method(), path}) == route_handlers.end())
+    {
+        send_response(http::HttpResponse(http::status_codes::NOT_FOUND, "Not Found"));
+        throw http::exceptions::NotFound();
+    }
 
-    http::HttpResponse response = mock_response_generator();
+    http::HttpResponse response;
+    route_handlers[{request.method(), path}](request, response);
 
     try
     {
