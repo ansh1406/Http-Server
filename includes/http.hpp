@@ -8,11 +8,23 @@
 #include <map>
 #include <functional>
 #include <string>
+#include <exception>
 
 namespace http
 {
     class HttpRequest;
     class HttpResponse;
+    namespace exceptions
+    {
+        class CanNotCreateServer : public std::exception
+        {
+        public:
+            const char *what() const noexcept override
+            {
+                return "Unable to create server.";
+            }
+        };
+    }
     class HttpServer
     {
     private:

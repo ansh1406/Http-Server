@@ -8,15 +8,6 @@ namespace http
 {
     namespace exceptions
     {
-        class CanNotCreateServer : public std::exception
-        {
-        public:
-            const char *what() const noexcept override
-            {
-                return "Unable to create server.";
-            }
-        };
-
         class BadRequest : public std::exception
         {
         public:
