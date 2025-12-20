@@ -396,30 +396,3 @@ http::HttpRequest http::HttpRequestParser::parse(const std::vector<char> &raw_re
     http::HttpRequest request(request_line.method, request_line.uri, request_line.version, headers, body);
     return request;
 }
-
-void http::HttpResponse::send(const HttpResponse &response , tcp::ConnectionSocket &client_socket)
-{
-    try
-    {
-        std::string status_line = response._version + " " + std::to_string(response._status_code) + " " + response._status_message + "\r\n";
-        client_socket.send_data(std::vector<char>(status_line.begin(), status_line.end()));
-
-        for (const auto &header : response._headers)
-        {
-            std::string header_line = header.first + ": " + header.second + "\r\n";
-            client_socket.send_data(std::vector<char>(header_line.begin(), header_line.end()));
-        }
-
-        client_socket.send_data(std::vector<char>({'\r', '\n'}));
-
-        if (!response._body.empty())
-        {
-            client_socket.send_data(response._body);
-        }
-    }
-    catch (const tcp::exceptions::CanNotSendData &e)
-    {
-        std::cerr << "Error sending data: " << e.what() << std::endl;
-        throw http::exceptions::CanNotSendResponse();
-    }
-}

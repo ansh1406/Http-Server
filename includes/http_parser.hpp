@@ -219,7 +219,6 @@ namespace http
         const std::string &status_message() const { return _status_message; }
         const std::map<std::string, std::string> &headers() const { return _headers; }
         const std::vector<char> &body() const { return _body; }
-        static void send(const HttpResponse &response , tcp::ConnectionSocket &client_socket);
 
         void set_status_code(int status_code) { _status_code = status_code; }
         void set_status_message(const std::string &status_message) { _status_message = status_message; }

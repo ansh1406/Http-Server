@@ -104,6 +104,7 @@ namespace http
         HttpConnection &operator=(HttpConnection &&) = default;
 
         void handle();
+        void send_response(const http::HttpResponse &response);
     };
 }
 

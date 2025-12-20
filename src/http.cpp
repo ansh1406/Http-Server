@@ -66,67 +66,67 @@ void http::HttpConnection::handle()
     catch (const http::exceptions::UnexpectedEndOfStream &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
         throw http::exceptions::BadRequest();
     }
     catch (const http::exceptions::InvalidRequestLine &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
         throw http::exceptions::BadRequest();
     }
     catch (const http::exceptions::InvalidChunkedEncoding &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
         throw http::exceptions::BadRequest();
     }
     catch (const http::exceptions::InvalidContentLength &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
         throw http::exceptions::BadRequest();
     }
     catch (const http::exceptions::MultipleContentLengthHeaders &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
         throw http::exceptions::BadRequest();
     }
     catch (const http::exceptions::BothContentLengthAndChunked &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
         throw http::exceptions::BadRequest();
     }
     catch (const http::exceptions::TransferEncodingWithoutChunked &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
         throw http::exceptions::BadRequest();
     }
     catch (const http::exceptions::RequestLineTooLong &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::URI_TOO_LONG, "Invalid Request Line"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::URI_TOO_LONG, "Invalid Request Line"));
         throw http::exceptions::InvalidRequestLine();
     }
     catch (const http::exceptions::HeadersTooLarge &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large"));
         throw http::exceptions::HeaderFieldsTooLarge();
     }
     catch (const http::exceptions::BodyTooLarge &e)
     {
         std::cerr << "Error reading request: " << e.what() << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::PAYLOAD_TOO_LARGE, "Payload Too Large"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::PAYLOAD_TOO_LARGE, "Payload Too Large"));
         throw http::exceptions::PayloadTooLarge();
     }
     catch (...)
     {
         std::cerr << "Unknown error reading request." << std::endl;
-        HttpResponse::send(http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error"), client_socket);
+        send_response(http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error"));
         throw http::exceptions::InternalServerError();
     }
 
@@ -138,7 +138,7 @@ void http::HttpConnection::handle()
 
     try
     {
-        http::HttpResponse::send(response, client_socket);
+        send_response(response);
     }
     catch (const http::exceptions::CanNotSendResponse &e)
     {
@@ -147,5 +147,32 @@ void http::HttpConnection::handle()
     catch (...)
     {
         throw;
+    }
+}
+
+void http::HttpConnection::send_response(const http::HttpResponse &response)
+{
+    try
+    {
+        std::string status_line = response.version() + " " + std::to_string(response.status_code()) + " " + response.status_message() + "\r\n";
+        client_socket.send_data(std::vector<char>(status_line.begin(), status_line.end()));
+
+        for (const auto &header : response.headers())
+        {
+            std::string header_line = header.first + ": " + header.second + "\r\n";
+            client_socket.send_data(std::vector<char>(header_line.begin(), header_line.end()));
+        }
+
+        client_socket.send_data(std::vector<char>({'\r', '\n'}));
+
+        if (!response.body().empty())
+        {
+            client_socket.send_data(response.body());
+        }
+    }
+    catch (const tcp::exceptions::CanNotSendData &e)
+    {
+        std::cerr << "Error sending data: " << e.what() << std::endl;
+        throw http::exceptions::CanNotSendResponse();
     }
 }
