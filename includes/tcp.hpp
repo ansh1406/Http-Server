@@ -152,6 +152,8 @@ namespace tcp
         explicit ListeningSocket(const in_addr_t ip, const Port port);
         explicit ListeningSocket(const Port port) : ListeningSocket(constants::DEFAULT_ADDRESS, port) {}
 
+        ListeningSocket() = default;
+
         ListeningSocket(ListeningSocket &&) = default;
         ListeningSocket &operator=(ListeningSocket &&) = default;
 
