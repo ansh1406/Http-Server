@@ -54,16 +54,6 @@ void http::HttpServer::start()
     }
 }
 
-http::HttpResponse mock_response_generator()
-{
-    http::HttpResponse response;
-    response.set_status_code(200);
-    response.set_status_message("OK");
-    response.set_headers({{"Content-Type", "text/plain"}, {"Connection", "close"}, {"Content-Length", "13"}});
-    response.set_body(std::vector<char>{'H', 'e', 'l', 'l', 'o', ',', ' ', 'W', 'o', 'r', 'l', 'd', '!'});
-    return response;
-}
-
 void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers)
 {
     std::vector<char> raw_request;
