@@ -2,6 +2,8 @@
 #define HTTP_PARSER
 
 #include "includes/tcp.hpp"
+#include "includes/http_request.hpp"
+#include "includes/http_constants.hpp"
 
 #include <string>
 #include <map>
@@ -82,83 +84,6 @@ namespace http
             CanNotSendResponse() : std::runtime_error("Unable to send HTTP response") {}
         };
     }
-    namespace headers
-    {
-        const std::string CONTENT_LENGTH = "content-length";
-        const std::string TRANSFER_ENCODING = "transfer-encoding";
-        const std::string CONNECTION = "connection";
-        const std::string HOST = "host";
-        const std::string EXPECT = "expect";
-    }
-    namespace methods
-    {
-        const std::string GET = "GET";
-        const std::string POST = "POST";
-        const std::string PUT = "PUT";
-        const std::string DELETE = "DELETE";
-        const std::string HEAD = "HEAD";
-        const std::string OPTIONS = "OPTIONS";
-        const std::string PATCH = "PATCH";
-        const std::string TRACE = "TRACE";
-        const std::string CONNECT = "CONNECT";
-    }
-
-    namespace versions
-    {
-        const std::string HTTP_1_1 = "HTTP/1.1";
-    }
-
-    namespace status_codes
-    {
-        const int OK = 200;
-        const int CREATED = 201;
-        const int NO_CONTENT = 204;
-        const int BAD_REQUEST = 400;
-        const int UNAUTHORIZED = 401;
-        const int FORBIDDEN = 403;
-        const int NOT_FOUND = 404;
-        const int INTERNAL_SERVER_ERROR = 500;
-        const int NOT_IMPLEMENTED = 501;
-        const int BAD_GATEWAY = 502;
-        const int SERVICE_UNAVAILABLE = 503;
-        const int URI_TOO_LONG = 414;
-        const int PAYLOAD_TOO_LARGE = 413;
-        const int HEADERS_TOO_LARGE = 431;
-        const int HTTP_VERSION_NOT_SUPPORTED = 505;
-    }
-
-    namespace constants
-    {
-        const size_t MAX_HEADER_SIZE = 8192;   // 8 KB
-        const size_t MAX_BODY_SIZE = 10485760; // 10 MB
-        const size_t READ_BUFFER_SIZE = 16384; // 16 KB
-        const size_t SINGLE_READ_SIZE = 4096;  // 4 KB
-        const size_t MAX_REQUEST_LINE = 8192;  // 8 KB
-    }
-
-    class HttpRequest
-    {
-    private:
-        std::string _method;
-        std::string _uri;
-        std::string _version;
-        std::map<std::string, std::string> _headers;
-        std::vector<char> _body;
-
-    public:
-        HttpRequest(const std::string &method,
-                    const std::string &uri,
-                    const std::string &version,
-                    const std::map<std::string, std::string> &headers,
-                    const std::vector<char> &body)
-            : _method(method), _uri(uri), _version(version), _headers(headers), _body(body) {}
-
-        const std::string &method() const { return _method; }
-        const std::string &uri() const { return _uri; }
-        const std::string &version() const { return _version; }
-        const std::map<std::string, std::string> &headers() const { return _headers; }
-        const std::vector<char> &body() const { return _body; }
-    };
 
     struct HttpRequestLine
     {
@@ -179,39 +104,7 @@ namespace http
         static std::string path_from_uri(const std::string &uri);
     };
 
-    class HttpResponse
-    {
-    private:
-        std::string _version;
-        int _status_code;
-        std::string _status_message;
-        std::map<std::string, std::string> _headers;
-        std::vector<char> _body;
-
-    public:
-        HttpResponse(int status_code,
-                     const std::string &status_message,
-                     const std::map<std::string, std::string> &headers,
-                     const std::vector<char> &body)
-            : _version(versions::HTTP_1_1), _status_code(status_code), _status_message(status_message), _headers(headers), _body(body) {}
-
-        HttpResponse() : _version(versions::HTTP_1_1) {}
-
-        explicit HttpResponse(int status_code,
-                              const std::string &status_message)
-            : _version(versions::HTTP_1_1), _status_code(status_code), _status_message(status_message) {}
-
-        const std::string &version() const { return _version; }
-        int status_code() const { return _status_code; }
-        const std::string &status_message() const { return _status_message; }
-        const std::map<std::string, std::string> &headers() const { return _headers; }
-        const std::vector<char> &body() const { return _body; }
-
-        void set_status_code(int status_code) { _status_code = status_code; }
-        void set_status_message(const std::string &status_message) { _status_message = status_message; }
-        void set_headers(const std::map<std::string, std::string> &headers) { _headers = headers; }
-        void set_body(const std::vector<char> &body) { _body = body; }
-        };
+    
 }
 
 #endif

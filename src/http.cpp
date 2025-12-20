@@ -1,4 +1,5 @@
 #include "includes/http.hpp"
+#include "includes/http_internals.hpp"
 
 http::HttpServer::HttpServer(tcp::Port port)
 {
