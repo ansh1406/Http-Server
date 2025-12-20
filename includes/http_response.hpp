@@ -39,8 +39,8 @@ namespace http
 
         void set_status_code(int status_code) { _status_code = status_code; }
         void set_status_message(const std::string &status_message) { _status_message = status_message; }
-        void set_headers(const std::map<std::string, std::string> &headers) { _headers = headers; }
         void set_body(const std::vector<char> &body) { _body = body; }
+        void add_header(const std::string key, const std::string value) { _headers[key] = value; }
     };
 }
 
