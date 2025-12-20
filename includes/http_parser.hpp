@@ -105,9 +105,7 @@ namespace http
 
     namespace versions
     {
-        const std::string HTTP_1_0 = "HTTP/1.0";
         const std::string HTTP_1_1 = "HTTP/1.1";
-        const std::string HTTP_2_0 = "HTTP/2.0";
     }
 
     namespace status_codes
@@ -200,12 +198,11 @@ namespace http
         std::vector<char> _body;
 
     public:
-        HttpResponse(const std::string &version,
-                     int status_code,
+        HttpResponse(int status_code,
                      const std::string &status_message,
                      const std::map<std::string, std::string> &headers,
                      const std::vector<char> &body)
-            : _version(version), _status_code(status_code), _status_message(status_message), _headers(headers), _body(body) {}
+            : _version(versions::HTTP_1_1), _status_code(status_code), _status_message(status_message), _headers(headers), _body(body) {}
 
         HttpResponse() = default;
 
@@ -220,7 +217,6 @@ namespace http
         const std::vector<char> &body() const { return _body; }
         static void send(const HttpResponse &response , tcp::ConnectionSocket &client_socket);
 
-        void set_version(const std::string &version) { _version = version; }
         void set_status_code(int status_code) { _status_code = status_code; }
         void set_status_message(const std::string &status_message) { _status_message = status_message; }
         void set_headers(const std::map<std::string, std::string> &headers) { _headers = headers; }
