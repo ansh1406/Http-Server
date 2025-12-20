@@ -190,6 +190,7 @@ namespace http
 
     public:
         static HttpRequest parse(const std::vector<char> &raw_request);
+        static std::string path_from_uri(const std::string &uri);
     };
 
     class HttpResponse

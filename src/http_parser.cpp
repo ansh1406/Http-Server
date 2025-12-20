@@ -259,6 +259,44 @@ long http::HttpRequestReader::is_content_length_header(const size_t header_end_i
     return -1;
 }
 
+std::string http::HttpRequestParser::path_from_uri(const std::string &uri)
+{
+    size_t query_pos = uri.find('?');
+    std::string path;
+    if (query_pos != std::string::npos)
+    {
+        path = uri.substr(0, query_pos);
+    }
+    path = uri;
+
+    std::vector<std::string> segments;
+    size_t start = 0;
+    size_t end = 0;
+    while ((end = path.find('/', start)) != std::string::npos)
+    {
+        std::string segment = path.substr(start, end - start);
+        if (segment == "..")
+        {
+            if (!segments.empty())
+            {
+                segments.pop_back();
+            }
+        }
+        else if (segment != "." && !segment.empty())
+        {
+            segments.push_back(segment);
+        }
+        start = end + 1;
+    }
+
+    std::string normalized_path = "/";
+    for (const auto &segment : segments)
+    {
+        normalized_path += "/" + segment;
+    }
+    return normalized_path;
+}
+
 void http::HttpRequestReader::read_from_tcp(tcp::ConnectionSocket &client_socket)
 {
     try
