@@ -1,7 +1,7 @@
 #ifndef HTTP_RESPONSE_HPP
 #define HTTP_RESPONSE_HPP
 
-#include "includes/http_constants.hpp"
+#include "http_constants.hpp"
 
 #include <string>
 #include <map>

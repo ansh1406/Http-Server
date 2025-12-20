@@ -1,4 +1,9 @@
 #include "includes/http_parser.hpp"
+#include "includes/http_exceptions.hpp"
+#include "includes/http_request.hpp"
+#include "includes/http_constants.hpp"
+
+#include <cctype>
 
 http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vector<char> &raw_request, size_t &pos)
 {
@@ -157,4 +162,92 @@ std::string http::HttpRequestParser::path_from_uri(const std::string &uri)
         normalized_path += "/" + segment;
     }
     return normalized_path.empty() ? "/" : normalized_path;
+}
+
+bool http::HttpRequestParser::validate_request_line(const std::vector<char> &request_line)
+{
+    // Method SP Request-URI SP HTTP-Version CRLF
+    // SP count should be 2 in a valid request line
+    int space_count = 0;
+    for (char c : request_line)
+    {
+        if (c == ' ')
+        {
+            ++space_count;
+        }
+    }
+    return space_count == 2;
+}
+
+bool http::HttpRequestParser::is_transfer_encoding_chunked_header(const std::vector<char> &header)
+{
+    std::string header_line(header.begin(), header.end());
+    size_t colon_pos = header_line.find(':');
+    if (colon_pos == std::string::npos)
+    {
+        return false;
+    }
+
+    std::string key = header_line.substr(0, colon_pos);
+    for (auto &c : key)
+        c = std::tolower(c);
+    std::string value = header_line.substr(colon_pos + 1);
+
+    while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
+        value.erase(value.begin());
+    if (key == http::headers::TRANSFER_ENCODING)
+    {
+        size_t last_comma = value.find_last_of(',');
+        std::string last_encoding = (last_comma == std::string::npos) ? value : value.substr(last_comma + 1);
+
+        while (!last_encoding.empty() && (last_encoding.front() == ' ' || last_encoding.front() == '\t'))
+            last_encoding.erase(last_encoding.begin());
+
+        while (!last_encoding.empty() && (last_encoding.back() == ' ' || last_encoding.back() == '\t'))
+            last_encoding.pop_back();
+
+        if (last_encoding != "chunked")
+        {
+            throw http::exceptions::TransferEncodingWithoutChunked();
+        }
+        return true;
+    }
+    return false;
+}
+
+long http::HttpRequestParser::is_content_length_header(const std::vector<char> &header)
+{
+    std::string header_line(header.begin(), header.end());
+    size_t colon_pos = header_line.find(':');
+    if (colon_pos == std::string::npos)
+    {
+        return -1;
+    }
+    std::string key = header_line.substr(0, colon_pos);
+    for (auto &c : key)
+        c = std::tolower(c);
+    std::string value = header_line.substr(colon_pos + 1);
+    while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
+        value.erase(value.begin());
+    if (key == http::headers::CONTENT_LENGTH)
+    {
+        try
+        {
+            size_t content_length = std::stol(value);
+            if (content_length < 0)
+            {
+                throw http::exceptions::InvalidContentLength();
+            }
+            return content_length;
+        }
+        catch (const std::invalid_argument &)
+        {
+            throw http::exceptions::InvalidContentLength();
+        }
+        catch (const std::out_of_range &)
+        {
+            throw http::exceptions::InvalidContentLength();
+        }
+    }
+    return -1;
 }

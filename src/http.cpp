@@ -1,11 +1,22 @@
 #include "includes/http.hpp"
-#include "includes/http_internals.hpp"
+#include "includes/http_connection.hpp"
+#include "includes/http_exceptions.hpp"
+#include "includes/http_parser.hpp"
+#include "includes/http_constants.hpp"
+#include "includes/http_request.hpp"
+#include "includes/http_response.hpp"
 
-http::HttpServer::HttpServer(tcp::Port port)
+struct http::HttpServer::Impl
+{
+    tcp::ListeningSocket server_socket;
+};
+
+http::HttpServer::HttpServer(unsigned short port)
 {
     try
     {
-        server_socket = tcp::ListeningSocket(port);
+        pimpl = new Impl();
+        pimpl->server_socket = tcp::ListeningSocket(port);
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {
@@ -19,13 +30,18 @@ http::HttpServer::HttpServer(tcp::Port port)
     }
 }
 
+http::HttpServer::~HttpServer()
+{
+    delete pimpl;
+}
+
 void http::HttpServer::start()
 {
     while (true)
     {
         try
         {
-            tcp::ConnectionSocket client_socket = server_socket.accept_connection();
+            tcp::ConnectionSocket client_socket = pimpl->server_socket.accept_connection();
             HttpConnection connection(std::move(client_socket));
             std::cout << "Connection accepted." << std::endl;
             std::cout << "Ip: " << connection.get_ip() << std::endl;
@@ -60,7 +76,7 @@ void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, 
     std::vector<char> raw_request;
     try
     {
-        raw_request = request_reader.read(client_socket);
+        raw_request = read(client_socket);
     }
     catch (const http::exceptions::UnexpectedEndOfStream &e)
     {
@@ -129,7 +145,7 @@ void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, 
         throw http::exceptions::InternalServerError();
     }
 
-    HttpRequest request = request_parser.parse(raw_request);
+    HttpRequest request = http::HttpRequestParser::parse(raw_request);
 
     std::string path = http::HttpRequestParser::path_from_uri(request.uri());
     if (route_handlers.find({request.method(), path}) == route_handlers.end())
@@ -187,7 +203,7 @@ void http::HttpServer::add_route_handler(const std::string method, const std::st
     route_handlers[{method, path}] = handler;
 }
 
-std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_socket)
+std::vector<char> http::HttpConnection::read(tcp::ConnectionSocket &client_socket)
 {
     try
     {
@@ -221,7 +237,7 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
             read_from_tcp(client_socket);
         }
 
-        if (!validate_request_line(request_data))
+        if (!http::HttpRequestParser::validate_request_line(request_data))
         {
             throw http::exceptions::InvalidRequestLine();
         }
@@ -237,7 +253,7 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
 
                 if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
                 {
-                    long content_length_from_header = is_content_length_header(pos);
+                    long content_length_from_header = http::HttpRequestParser::is_content_length_header(std::vector<char>(buffer.begin(), buffer.begin() + pos));
                     if (content_length != -1 && content_length_from_header != -1)
                     {
                         throw http::exceptions::MultipleContentLengthHeaders();
@@ -247,7 +263,7 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
                         content_length = content_length_from_header;
                         request_has_body = true;
                     }
-                    if (is_transfer_encoding_header(pos))
+                    if (http::HttpRequestParser::is_transfer_encoding_chunked_header(std::vector<char>(buffer.begin(), buffer.begin() + pos)))
                     {
                         has_chunked_transfer_encoding = true;
                         request_has_body = true;
@@ -356,97 +372,7 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
     }
 }
 
-bool http::HttpRequestReader::validate_request_line(const std::vector<char> &request_line)
-{
-    // Method SP Request-URI SP HTTP-Version CRLF
-    // SP count should be 2 in a valid request line
-    int space_count = 0;
-    for (char c : request_line)
-    {
-        if (c == ' ')
-        {
-            ++space_count;
-        }
-    }
-    return space_count == 2;
-}
-
-bool http::HttpRequestReader::is_transfer_encoding_header(const size_t header_end_index)
-{
-    size_t header_start = 0;
-    std::string header_line(buffer.begin() + header_start, buffer.begin() + header_end_index);
-    size_t colon_pos = header_line.find(':');
-    if (colon_pos == std::string::npos)
-    {
-        return false;
-    }
-
-    std::string key = header_line.substr(0, colon_pos);
-    for (auto &c : key)
-        c = std::tolower(c);
-    std::string value = header_line.substr(colon_pos + 1);
-
-    while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
-        value.erase(value.begin());
-    if (key == http::headers::TRANSFER_ENCODING)
-    {
-        size_t last_comma = value.find_last_of(',');
-        std::string last_encoding = (last_comma == std::string::npos) ? value : value.substr(last_comma + 1);
-
-        while (!last_encoding.empty() && (last_encoding.front() == ' ' || last_encoding.front() == '\t'))
-            last_encoding.erase(last_encoding.begin());
-
-        while (!last_encoding.empty() && (last_encoding.back() == ' ' || last_encoding.back() == '\t'))
-            last_encoding.pop_back();
-
-        if (last_encoding != "chunked")
-        {
-            throw http::exceptions::TransferEncodingWithoutChunked();
-        }
-        return true;
-    }
-    return false;
-}
-
-long http::HttpRequestReader::is_content_length_header(const size_t header_end_index)
-{
-    size_t header_start = 0;
-    std::string header_line(buffer.begin() + header_start, buffer.begin() + header_end_index);
-    size_t colon_pos = header_line.find(':');
-    if (colon_pos == std::string::npos)
-    {
-        return -1;
-    }
-    std::string key = header_line.substr(0, colon_pos);
-    for (auto &c : key)
-        c = std::tolower(c);
-    std::string value = header_line.substr(colon_pos + 1);
-    while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
-        value.erase(value.begin());
-    if (key == http::headers::CONTENT_LENGTH)
-    {
-        try
-        {
-            size_t content_length = std::stol(value);
-            if (content_length < 0)
-            {
-                throw http::exceptions::InvalidContentLength();
-            }
-            return content_length;
-        }
-        catch (const std::invalid_argument &)
-        {
-            throw http::exceptions::InvalidContentLength();
-        }
-        catch (const std::out_of_range &)
-        {
-            throw http::exceptions::InvalidContentLength();
-        }
-    }
-    return -1;
-}
-
-void http::HttpRequestReader::read_from_tcp(tcp::ConnectionSocket &client_socket)
+void http::HttpConnection::read_from_tcp(tcp::ConnectionSocket &client_socket)
 {
     try
     {
