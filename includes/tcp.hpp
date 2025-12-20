@@ -121,9 +121,10 @@ namespace tcp
     {
     private:
         SocketFD socket_fd;
+        sockaddr_in address;
 
     public:
-        explicit ConnectionSocket(const SocketHandle handle) : socket_fd(handle) {}
+        explicit ConnectionSocket(const SocketHandle handle, const sockaddr_in &addr) : socket_fd(handle), address(addr) {}
 
         ConnectionSocket(ConnectionSocket &&) = default;
         ConnectionSocket &operator=(ConnectionSocket &&) = default;
@@ -137,6 +138,16 @@ namespace tcp
         }
         void send_data(const std::vector<char> &data);
         std::vector<char> receive_data(const size_t max_size = constants::MAX_BUFFER_SIZE);
+
+        std::string get_ip() const
+        {
+            return std::string(inet_ntoa(address.sin_addr));
+        }
+
+        Port get_port() const
+        {
+            return ntohs(address.sin_port);
+        }
     };
     class ListeningSocket
     {
@@ -159,7 +170,7 @@ namespace tcp
 
         ListeningSocket(const ListeningSocket &) = delete;
         ListeningSocket &operator=(const ListeningSocket &) = delete;
-        
+
         SocketHandle fd() const
         {
             return socket_fd.fd();

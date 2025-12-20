@@ -26,6 +26,9 @@ void http::HttpServer::start()
         {
             tcp::ConnectionSocket client_socket = server_socket.accept_connection();
             HttpConnection connection(std::move(client_socket));
+            std::cout << "Connection accepted." << std::endl;
+            std::cout << "Ip: " << connection.get_ip() << std::endl;
+            std::cout << "Port: " << connection.get_port() << std::endl;
             connection.handle();
         }
         catch (const tcp::exceptions::CanNotAcceptConnection &e)

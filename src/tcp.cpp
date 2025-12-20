@@ -83,7 +83,8 @@ tcp::ConnectionSocket tcp::ListeningSocket::accept_connection()
 {
     sockaddr_in client_addr{};
     socklen_t client_len = sizeof(client_addr);
-    ConnectionSocket client_socket(accept(socket_fd.fd(), reinterpret_cast<struct sockaddr *>(&client_addr), &client_len));
+    tcp::SocketHandle sock = accept(socket_fd.fd(), reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
+    ConnectionSocket client_socket(sock,client_addr);
     if (client_socket.fd() < 0)
     {
         int err = errno;

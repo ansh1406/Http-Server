@@ -16,7 +16,7 @@ namespace http
     {
         class CanNotCreateServer : public std::exception
         {
-            public:
+        public:
             const char *what() const noexcept override
             {
                 return "Unable to create server.";
@@ -105,6 +105,16 @@ namespace http
 
         void handle();
         void send_response(const http::HttpResponse &response);
+
+        std::string get_ip() const
+        {
+            return client_socket.get_ip();
+        }
+
+        tcp::Port get_port() const
+        {
+            return client_socket.get_port();
+        }
     };
 }
 
