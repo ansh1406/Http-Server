@@ -97,7 +97,7 @@ std::vector<char> http::HttpRequestReader::read(tcp::ConnectionSocket &client_so
             {
                 if (content_length > http::constants::MAX_BODY_SIZE)
                 {
-                    throw http::exceptions::PayloadTooLarge();
+                    throw http::exceptions::BodyTooLarge();
                 }
                 size_t remaining = content_length;
                 while (remaining > 0)

@@ -70,10 +70,10 @@ namespace http
             InvalidChunkedEncoding() : std::runtime_error("Invalid chunked encoding") {}
         };
 
-        class PayloadTooLarge : public std::runtime_error
+        class BodyTooLarge : public std::runtime_error
         {
         public:
-            PayloadTooLarge() : std::runtime_error("Payload too large") {}
+            BodyTooLarge() : std::runtime_error("Payload too large") {}
         };
 
         class CanNotSendResponse : public std::runtime_error
