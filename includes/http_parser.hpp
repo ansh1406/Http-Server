@@ -208,7 +208,7 @@ namespace http
                      const std::vector<char> &body)
             : _version(versions::HTTP_1_1), _status_code(status_code), _status_message(status_message), _headers(headers), _body(body) {}
 
-        HttpResponse() = default;
+        HttpResponse() : _version(versions::HTTP_1_1) {}
 
         explicit HttpResponse(int status_code,
                               const std::string &status_message)
