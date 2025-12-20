@@ -121,6 +121,10 @@ namespace http
         const int NOT_IMPLEMENTED = 501;
         const int BAD_GATEWAY = 502;
         const int SERVICE_UNAVAILABLE = 503;
+        const int URI_TOO_LONG = 414;
+        const int PAYLOAD_TOO_LARGE = 413;
+        const int HEADERS_TOO_LARGE = 431;
+        const int HTTP_VERSION_NOT_SUPPORTED = 505;
     }
 
     namespace constants
