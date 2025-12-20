@@ -190,3 +190,8 @@ void http::HttpConnection::send_response(const http::HttpResponse &response)
         throw http::exceptions::CanNotSendResponse();
     }
 }
+
+void http::HttpServer::add_route_handler(const std::string method, const std::string path, std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler)
+{
+    route_handlers[{method, path}] = handler;
+}

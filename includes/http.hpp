@@ -95,8 +95,8 @@ namespace http
         HttpServer &operator=(HttpServer &&) = default;
 
         void start();
-        void add_route_handler(const std::string &method, const std::string &path,
-                               const std::function<void(const http::HttpRequest &, http::HttpResponse &)> &handler);
+        void add_route_handler(const std::string method, const std::string path,
+                               const std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler);
     };
 
     class HttpConnection
