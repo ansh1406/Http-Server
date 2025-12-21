@@ -1,8 +1,11 @@
 #include "includes/tcp.hpp"
+#include <csignal>
+
 tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port)
 {
     try
     {
+        signal(SIGPIPE, SIG_IGN);
         address = create_address(ip, port);
         socket_fd = create_socket();
         bind_socket();
@@ -99,30 +102,56 @@ void tcp::ConnectionSocket::send_data(const std::vector<char> &data)
     ssize_t data_length = data.size();
     const char *data_ptr = data.data();
 
-    while (total_sent < data_length)
+    try
     {
-        ssize_t bytes_sent = send(socket_fd.fd(), data_ptr + total_sent, data_length - total_sent, 0);
-        if (bytes_sent < 0)
+        while (total_sent < data_length)
         {
-            int err = errno;
-            throw tcp::exceptions::CanNotSendData{std::string(strerror(err))};
+            ssize_t bytes_sent = send(socket_fd.fd(), data_ptr + total_sent, data_length - total_sent, 0);
+            if (bytes_sent < 0)
+            {
+                int err = errno;
+                throw tcp::exceptions::CanNotSendData{std::string(strerror(err))};
+            }
+            total_sent += bytes_sent;
         }
-        total_sent += bytes_sent;
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error while sending data: " << e.what() << std::endl;
+        throw tcp::exceptions::CanNotSendData{"Failed to send all data."};
+    }
+    catch (...)
+    {
+        std::cerr << "Unknown error occurred while sending data." << std::endl;
+        throw tcp::exceptions::CanNotSendData{"Unknown error while sending data."};
     }
 }
 
 std::vector<char> tcp::ConnectionSocket::receive_data(const size_t max_size)
 {
     std::vector<char> buffer(max_size);
-    ssize_t bytes_received = recv(socket_fd.fd(), buffer.data(), max_size, 0);
-    if (bytes_received < 0)
+    try
     {
-        int err = errno;
-        throw tcp::exceptions::CanNotReceiveData{std::string(strerror(err))};
+        ssize_t bytes_received = recv(socket_fd.fd(), buffer.data(), max_size, 0);
+        if (bytes_received < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotReceiveData{std::string(strerror(err))};
+        }
+        /// @todo : Watch for EINTR and EAGAIN
+        buffer.resize(bytes_received);
+        return buffer;
     }
-    /// @todo : Watch for EINTR and EAGAIN
-    buffer.resize(bytes_received);
-    return buffer;
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error while receiving data: " << e.what() << std::endl;
+        throw tcp::exceptions::CanNotReceiveData{"Failed to receive data."};
+    }
+    catch (...)
+    {
+        std::cerr << "Unknown error occurred while receiving data." << std::endl;
+        throw tcp::exceptions::CanNotReceiveData{"Unknown error while receiving data."};
+    }
 }
 
 void tcp::SocketFD::close_fd()

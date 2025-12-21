@@ -64,6 +64,7 @@ namespace http
 /*
 A simple implementation of an HTTP server using this library:
 #include "includes/http.hpp"
+#include <iostream>
 
 int main()
 {
