@@ -72,6 +72,7 @@ namespace tcp
         };
     }
 
+    /// @brief RAII class for managing socket file descriptor
     class SocketFD
     {
     private:
@@ -110,6 +111,7 @@ namespace tcp
         void close_fd();
     };
 
+    /// @brief Class representing a TCP connection socket
     class ConnectionSocket
     {
     private:
@@ -132,16 +134,20 @@ namespace tcp
         void send_data(const std::vector<char> &data);
         std::vector<char> receive_data(const size_t max_size = constants::MAX_BUFFER_SIZE);
 
+        /// @return IP address of the connected peer as a string
         std::string get_ip() const
         {
             return std::string(inet_ntoa(address.sin_addr));
         }
 
+        /// @return Port number of the connected peer
         Port get_port() const
         {
             return ntohs(address.sin_port);
         }
     };
+
+    /// @brief Class representing a TCP listening socket
     class ListeningSocket
     {
     private:
@@ -168,13 +174,17 @@ namespace tcp
         {
             return socket_fd.fd();
         }
+        /// @brief Accepts an incoming connection and returns a ConnectionSocket object
+        /// @return ConnectionSocket representing the accepted connection
         ConnectionSocket accept_connection();
 
+        /// @return IP address the socket is bound to as a string
         std::string get_ip() const
         {
             return std::string(inet_ntoa(address.sin_addr));
         }
 
+        /// @return Port number the socket is bound to
         Port get_port() const
         {
             return ntohs(address.sin_port);

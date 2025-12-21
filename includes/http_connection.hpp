@@ -22,6 +22,8 @@ namespace http
         std::vector<char> read(tcp::ConnectionSocket &client_socket);
 
     public:
+        /// @brief Construct a new Http Connection object
+        /// @param socket The TCP connection socket associated with this HTTP connection
         explicit HttpConnection(tcp::ConnectionSocket &&socket)
             : client_socket(std::move(socket)) {}
 
@@ -31,15 +33,19 @@ namespace http
         HttpConnection(HttpConnection &&) = default;
         HttpConnection &operator=(HttpConnection &&) = default;
 
+        /// @brief Generate and send HTTP response based on the request and route handlers
+        /// @param route_handlers map of (method, path) pairs to their corresponding handler functions (callbacks)
         void handle(std::map<std::pair<std::string, std::string>,
                              std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers);
         void send_response(const http::HttpResponse &response);
 
+        /// @return IP address of the connected client
         std::string get_ip() const
         {
             return client_socket.get_ip();
         }
 
+        /// @return Port number of the connected client
         tcp::Port get_port() const
         {
             return client_socket.get_port();
