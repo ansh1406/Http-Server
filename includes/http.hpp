@@ -63,8 +63,10 @@ namespace http
 
 /*
 A simple implementation of an HTTP server using this library:
-#include "includes/http.hpp"
+#include "http.hpp"
 #include <iostream>
+#include <string>
+#include <vector>
 
 int main()
 {
@@ -73,12 +75,13 @@ int main()
         http::HttpServer server(8080);
 
         server.add_route_handler("GET", "/hello", [](const http::HttpRequest &req, http::HttpResponse &res) {
-            res.set_status_code(http::status_codes::OK);
+            res.set_status_code(200);
             res.set_status_message("OK");
             res.add_header("Content-Type", "text/plain");
             res.add_header("Connection", "close");
             res.add_header("Content-Length", "13");
-            res.set_body("Hello, World!");
+            std::string body = "Hello, World!";
+            res.set_body(std::vector<char>(body.begin(), body.end()));
         });
 
         server.start();
