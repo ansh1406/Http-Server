@@ -12,8 +12,6 @@
 
 namespace http
 {
-    class HttpRequest;
-    class HttpResponse;
     namespace exceptions
     {
         class CanNotCreateServer : public std::exception
