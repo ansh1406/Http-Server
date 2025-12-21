@@ -84,7 +84,7 @@ tcp::ConnectionSocket tcp::ListeningSocket::accept_connection()
     sockaddr_in client_addr{};
     socklen_t client_len = sizeof(client_addr);
     tcp::SocketHandle sock = accept(socket_fd.fd(), reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
-    ConnectionSocket client_socket(sock,client_addr);
+    ConnectionSocket client_socket(sock, client_addr);
     if (client_socket.fd() < 0)
     {
         int err = errno;
@@ -123,4 +123,13 @@ std::vector<char> tcp::ConnectionSocket::receive_data(const size_t max_size)
     /// @todo : Watch for EINTR and EAGAIN
     buffer.resize(bytes_received);
     return buffer;
+}
+
+void tcp::SocketFD::close_fd()
+{
+    if (fd_ != constants::INVALID_SOCKET)
+    {
+        ::close(fd_);
+        fd_ = constants::INVALID_SOCKET;
+    }
 }

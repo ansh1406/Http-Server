@@ -23,7 +23,7 @@ namespace tcp
         const SocketHandle INVALID_SOCKET = -1;
         const int SOCKET_ERROR = -1;
         const in_addr_t DEFAULT_ADDRESS = INADDR_ANY;
-        const int BACKLOG = 128;
+        const int BACKLOG = 10;
         const ssize_t MAX_BUFFER_SIZE = 4096;
         const int OPTION_TRUE = 1;
     }
@@ -107,14 +107,7 @@ namespace tcp
         explicit operator bool() const { return fd_ != constants::INVALID_SOCKET; }
 
     private:
-        void close_fd()
-        {
-            if (fd_ != constants::INVALID_SOCKET)
-            {
-                ::close(fd_);
-                fd_ = constants::INVALID_SOCKET;
-            }
-        }
+        void close_fd();
     };
 
     class ConnectionSocket
@@ -176,6 +169,16 @@ namespace tcp
             return socket_fd.fd();
         }
         ConnectionSocket accept_connection();
+
+        std::string get_ip() const
+        {
+            return std::string(inet_ntoa(address.sin_addr));
+        }
+
+        Port get_port() const
+        {
+            return ntohs(address.sin_port);
+        }
     };
 
 }
