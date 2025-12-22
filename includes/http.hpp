@@ -78,8 +78,6 @@ int main()
             res.set_status_code(200);
             res.set_status_message("OK");
             res.add_header("Content-Type", "text/plain");
-            res.add_header("Connection", "close");
-            res.add_header("Content-Length", "13");
             std::string body = "Hello, World!";
             res.set_body(std::vector<char>(body.begin(), body.end()));
         });

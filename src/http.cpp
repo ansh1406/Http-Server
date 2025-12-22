@@ -156,6 +156,8 @@ void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, 
 
     http::HttpResponse response;
     route_handlers[{request.method(), path}](request, response);
+    response.add_header(http::headers::CONNECTION, "close");
+    response.add_header(http::headers::CONTENT_LENGTH, std::to_string(response.body().size()));
 
     try
     {
