@@ -13,28 +13,23 @@ tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port)
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {
-        std::cerr << e.what() << std::endl;
-        throw tcp::exceptions::SocketNotCreated{"Cannot create socket."};
+        throw tcp::exceptions::SocketNotCreated{"TCP: Cannot create socket: " + std::string(e.what())};
     }
     catch (const tcp::exceptions::CanNotSetSocketOptions &e)
     {
-        std::cerr << e.what() << std::endl;
-        throw tcp::exceptions::SocketNotCreated{"Cannot set socket options."};
+        throw tcp::exceptions::SocketNotCreated{"TCP: Cannot set socket options: " + std::string(e.what())};
     }
     catch (const tcp::exceptions::CanNotBindSocket &e)
     {
-        std::cerr << e.what() << std::endl;
-        throw tcp::exceptions::SocketNotCreated{"Cannot bind socket."};
+        throw tcp::exceptions::SocketNotCreated{"TCP: Cannot bind socket: " + std::string(e.what())};
     }
     catch (const tcp::exceptions::CanNotListenOnSocket &e)
     {
-        std::cerr << e.what() << std::endl;
-        throw tcp::exceptions::SocketNotCreated{"Cannot listen on socket."};
+        throw tcp::exceptions::SocketNotCreated{"TCP: Cannot listen on socket: " + std::string(e.what())};
     }
     catch (...)
     {
-        std::cerr << "Unknown error occurred during socket creation" << std::endl;
-        throw tcp::exceptions::SocketNotCreated{"Unknown error while setting up the socket."};
+        throw tcp::exceptions::SocketNotCreated{"TCP: Unknown error while setting up the socket."};
     }
 }
 
@@ -44,13 +39,13 @@ tcp::SocketFD tcp::ListeningSocket::create_socket()
     if (sock.fd() < 0)
     {
         int err = errno;
-        throw tcp::exceptions::CanNotCreateSocket{std::string(strerror(err))};
+        throw tcp::exceptions::CanNotCreateSocket{std::string("TCP: ") + std::string(strerror(err))};
     }
     int optionValue = tcp::constants::OPTION_TRUE;
     if (setsockopt(sock.fd(), SOL_SOCKET, SO_REUSEADDR, &optionValue, sizeof(int)) < 0)
     {
         int err = errno;
-        throw tcp::exceptions::CanNotSetSocketOptions{std::string(strerror(err))};
+        throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
     }
     return sock;
 }
@@ -69,7 +64,7 @@ void tcp::ListeningSocket::bind_socket()
     if (bind(socket_fd.fd(), reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0)
     {
         int err = errno;
-        throw tcp::exceptions::CanNotBindSocket{std::string(strerror(err))};
+        throw tcp::exceptions::CanNotBindSocket{std::string("TCP: ") + std::string(strerror(err))};
     }
 }
 
@@ -78,7 +73,7 @@ void tcp::ListeningSocket::start_listening()
     if (listen(socket_fd.fd(), tcp::constants::BACKLOG) < 0)
     {
         int err = errno;
-        throw tcp::exceptions::CanNotListenOnSocket{std::string(strerror(err))};
+        throw tcp::exceptions::CanNotListenOnSocket{std::string("TCP: ") + std::string(strerror(err))};
     }
 }
 
@@ -91,7 +86,7 @@ tcp::ConnectionSocket tcp::ListeningSocket::accept_connection()
     if (client_socket.fd() < 0)
     {
         int err = errno;
-        throw tcp::exceptions::CanNotAcceptConnection{std::string(strerror(err))};
+        throw tcp::exceptions::CanNotAcceptConnection{std::string("TCP: ") + std::string(strerror(err))};
     }
     return client_socket;
 }
@@ -110,20 +105,18 @@ void tcp::ConnectionSocket::send_data(const std::vector<char> &data)
             if (bytes_sent < 0)
             {
                 int err = errno;
-                throw tcp::exceptions::CanNotSendData{std::string(strerror(err))};
+                throw tcp::exceptions::CanNotSendData{std::string("TCP: ") + std::string(strerror(err))};
             }
             total_sent += bytes_sent;
         }
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Error while sending data: " << e.what() << std::endl;
-        throw tcp::exceptions::CanNotSendData{"Failed to send all data."};
+        throw tcp::exceptions::CanNotSendData{"TCP: Failed to send all data: " + std::string(e.what())};
     }
     catch (...)
     {
-        std::cerr << "Unknown error occurred while sending data." << std::endl;
-        throw tcp::exceptions::CanNotSendData{"Unknown error while sending data."};
+        throw tcp::exceptions::CanNotSendData{"TCP: Unknown error while sending data."};
     }
 }
 
@@ -136,7 +129,7 @@ std::vector<char> tcp::ConnectionSocket::receive_data(const size_t max_size)
         if (bytes_received < 0)
         {
             int err = errno;
-            throw tcp::exceptions::CanNotReceiveData{std::string(strerror(err))};
+            throw tcp::exceptions::CanNotReceiveData{std::string("TCP: ") + std::string(strerror(err))};
         }
         /// @todo : Watch for EINTR and EAGAIN
         buffer.resize(bytes_received);
@@ -144,13 +137,11 @@ std::vector<char> tcp::ConnectionSocket::receive_data(const size_t max_size)
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Error while receiving data: " << e.what() << std::endl;
-        throw tcp::exceptions::CanNotReceiveData{"Failed to receive data."};
+        throw tcp::exceptions::CanNotReceiveData{"TCP: Failed to receive data: " + std::string(e.what())};
     }
     catch (...)
     {
-        std::cerr << "Unknown error occurred while receiving data." << std::endl;
-        throw tcp::exceptions::CanNotReceiveData{"Unknown error while receiving data."};
+        throw tcp::exceptions::CanNotReceiveData{"TCP: Unknown error while receiving data."};
     }
 }
 
