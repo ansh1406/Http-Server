@@ -82,12 +82,12 @@ tcp::ConnectionSocket tcp::ListeningSocket::accept_connection()
     sockaddr_in client_addr{};
     socklen_t client_len = sizeof(client_addr);
     tcp::SocketHandle sock = accept(socket_fd.fd(), reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
-    ConnectionSocket client_socket(sock, client_addr);
-    if (client_socket.fd() < 0)
+    if (sock < 0)
     {
         int err = errno;
         throw tcp::exceptions::CanNotAcceptConnection{std::string("TCP: ") + std::string(strerror(err))};
     }
+    ConnectionSocket client_socket(sock, client_addr);
     return client_socket;
 }
 
@@ -105,7 +105,7 @@ void tcp::ConnectionSocket::send_data(const std::vector<char> &data)
             if (bytes_sent < 0)
             {
                 int err = errno;
-                throw tcp::exceptions::CanNotSendData{std::string("TCP: ") + std::string(strerror(err))};
+                throw tcp::exceptions::CanNotSendData{std::string(strerror(err))};
             }
             total_sent += bytes_sent;
         }
@@ -129,7 +129,7 @@ std::vector<char> tcp::ConnectionSocket::receive_data(const size_t max_size)
         if (bytes_received < 0)
         {
             int err = errno;
-            throw tcp::exceptions::CanNotReceiveData{std::string("TCP: ") + std::string(strerror(err))};
+            throw tcp::exceptions::CanNotReceiveData{std::string(strerror(err))};
         }
         /// @todo : Watch for EINTR and EAGAIN
         buffer.resize(bytes_received);
