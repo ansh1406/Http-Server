@@ -8,124 +8,123 @@ namespace http
 {
     namespace exceptions
     {
-        class BadRequest : public std::exception
+        class BadRequest : public std::runtime_error
         {
         public:
-            const char *what() const noexcept override
-            {
-                return "400 Bad Request";
-            }
+            BadRequest(const std::string& message = "")
+                : std::runtime_error("HTTP: 400 Bad Request" + (message.empty() ? "" : "\n" + message)) {}
         };
 
-        class URITooLong : public std::exception
+        class URITooLong : public std::runtime_error
         {
         public:
-            const char *what() const noexcept override
-            {
-                return "414 URI Too Long";
-            }
+            URITooLong(const std::string& message = "")
+                : std::runtime_error("HTTP: 414 URI Too Long" + (message.empty() ? "" : "\n" + message)) {}
         };
 
-        class HeaderFieldsTooLarge : public std::exception
+        class HeaderFieldsTooLarge : public std::runtime_error
         {
         public:
-            const char *what() const noexcept override
-            {
-                return "431 Header Fields Too Large";
-            }
+            HeaderFieldsTooLarge(const std::string& message = "")
+                : std::runtime_error("HTTP: 431 Header Fields Too Large" + (message.empty() ? "" : "\n" + message)) {}
         };
 
-        class PayloadTooLarge : public std::exception
+        class PayloadTooLarge : public std::runtime_error
         {
         public:
-            const char *what() const noexcept override
-            {
-                return "413 Payload Too Large";
-            }
+            PayloadTooLarge(const std::string& message = "")
+                : std::runtime_error("HTTP: 413 Payload Too Large" + (message.empty() ? "" : "\n" + message)) {}
         };
 
-        class InternalServerError : public std::exception
+        class InternalServerError : public std::runtime_error
         {
         public:
-            const char *what() const noexcept override
-            {
-                return "500 Internal Server Error";
-            }
+            InternalServerError(const std::string& message = "")
+                : std::runtime_error("HTTP: 500 Internal Server Error" + (message.empty() ? "" : "\n" + message)) {}
         };
 
-        class NotFound : public std::exception
+        class NotFound : public std::runtime_error
         {
         public:
-            const char *what() const noexcept override
-            {
-                return "404 Not Found";
-            }
+            NotFound(const std::string& message = "")
+                : std::runtime_error("HTTP: 404 Not Found" + (message.empty() ? "" : "\n" + message)) {}
         };
         
         class CanNotSendResponse : public std::runtime_error
         {
         public:
-            CanNotSendResponse() : std::runtime_error("Unable to send HTTP response") {}
+            CanNotSendResponse(const std::string& message = "")
+                : std::runtime_error("HTTP: Unable to send HTTP response" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class UnexpectedEndOfStream : public std::runtime_error
         {
         public:
-            UnexpectedEndOfStream() : std::runtime_error("Unexpected end of stream") {}
+            UnexpectedEndOfStream(const std::string& message = "")
+                : std::runtime_error("HTTP: Unexpected end of stream" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class InvalidRequestLine : public std::runtime_error
         {
         public:
-            InvalidRequestLine() : std::runtime_error("Invalid HTTP request line") {}
+            InvalidRequestLine(const std::string& message = "")
+                : std::runtime_error("HTTP: Invalid HTTP request line" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class RequestLineTooLong : public std::runtime_error
         {
         public:
-            RequestLineTooLong() : std::runtime_error("HTTP request line too long") {}
+            RequestLineTooLong(const std::string& message = "")
+                : std::runtime_error("HTTP: HTTP request line too long" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class HeadersTooLarge : public std::runtime_error
         {
         public:
-            HeadersTooLarge() : std::runtime_error("HTTP header too large") {}
+            HeadersTooLarge(const std::string& message = "")
+                : std::runtime_error("HTTP: HTTP header too large" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class TransferEncodingWithoutChunked : public std::runtime_error
         {
         public:
-            TransferEncodingWithoutChunked() : std::runtime_error("Transfer-Encoding header is present without 'chunked' value") {}
+            TransferEncodingWithoutChunked(const std::string& message = "")
+                : std::runtime_error("HTTP: Transfer-Encoding header is present without 'chunked' value" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class InvalidContentLength : public std::runtime_error
         {
         public:
-            InvalidContentLength() : std::runtime_error("Invalid Content-Length header value") {}
+            InvalidContentLength(const std::string& message = "")
+                : std::runtime_error("HTTP: Invalid Content-Length header value" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class MultipleContentLengthHeaders : public std::runtime_error
         {
         public:
-            MultipleContentLengthHeaders() : std::runtime_error("Multiple Content-Length headers present") {}
+            MultipleContentLengthHeaders(const std::string& message = "")
+                : std::runtime_error("HTTP: Multiple Content-Length headers present" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class BothContentLengthAndChunked : public std::runtime_error
         {
         public:
-            BothContentLengthAndChunked() : std::runtime_error("Both Content-Length and Transfer-Encoding headers present") {}
+            BothContentLengthAndChunked(const std::string& message = "")
+                : std::runtime_error("HTTP: Both Content-Length and Transfer-Encoding headers present" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class InvalidChunkedEncoding : public std::runtime_error
         {
         public:
-            InvalidChunkedEncoding() : std::runtime_error("Invalid chunked encoding") {}
+            InvalidChunkedEncoding(const std::string& message = "")
+                : std::runtime_error("HTTP: Invalid chunked encoding" + (message.empty() ? "" : "\n" + message)) {}
         };
 
         class BodyTooLarge : public std::runtime_error
         {
         public:
-            BodyTooLarge() : std::runtime_error("Payload too large") {}
+            BodyTooLarge(const std::string& message = "")
+                : std::runtime_error("HTTP: Payload too large" + (message.empty() ? "" : "\n" + message)) {}
         };
     }
 }

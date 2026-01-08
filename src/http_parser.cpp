@@ -236,16 +236,11 @@ long http::HttpRequestParser::is_content_length_header(const std::vector<char> &
             size_t content_length = std::stol(value);
             if (content_length < 0)
             {
-                throw http::exceptions::InvalidContentLength();
+                throw;
             }
             return content_length;
         }
-        catch (const std::invalid_argument &)
-        {
-            throw http::exceptions::InvalidContentLength();
-        }
-        catch (const std::out_of_range &)
-        {
+        catch(...){
             throw http::exceptions::InvalidContentLength();
         }
     }
