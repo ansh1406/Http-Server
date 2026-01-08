@@ -6,6 +6,8 @@
 #include "includes/http_request.hpp"
 #include "includes/http_response.hpp"
 
+#include <iostream>
+
 struct http::HttpServer::Impl
 {
     tcp::ListeningSocket server_socket;

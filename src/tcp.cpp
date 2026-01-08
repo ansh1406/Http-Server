@@ -1,5 +1,6 @@
 #include "includes/tcp.hpp"
 #include <csignal>
+#include <cstring>
 
 tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port , const unsigned int max_pending)
 {
