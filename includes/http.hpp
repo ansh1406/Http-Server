@@ -24,6 +24,12 @@ namespace http
         };
     }
 
+    struct HttpServerConfig
+    {
+        unsigned short port;
+        unsigned int max_pending_connections;
+    };
+
     /// @brief A simple HTTP server.
     class HttpServer
     {
@@ -37,9 +43,9 @@ namespace http
 
     public:
         /// @brief Opens an HTTP/1.1 on the specified port. Over TCP.
-        /// @param port Port number to listen on.
+        /// @param config Configuration for the HTTP server.
         /// @throws http::exceptions::CanNotCreateServer if the server cannot be created.
-        explicit HttpServer(unsigned short port);
+        explicit HttpServer(HttpServerConfig config);
 
         HttpServer(const HttpServer &) = delete;
         HttpServer &operator=(const HttpServer &) = delete;

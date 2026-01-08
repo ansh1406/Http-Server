@@ -11,12 +11,12 @@ struct http::HttpServer::Impl
     tcp::ListeningSocket server_socket;
 };
 
-http::HttpServer::HttpServer(unsigned short port)
+http::HttpServer::HttpServer(HttpServerConfig config)
 {
     try
     {
         pimpl = new Impl();
-        pimpl->server_socket = tcp::ListeningSocket(port);
+        pimpl->server_socket = tcp::ListeningSocket(config.port, config.max_pending_connections);
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {
