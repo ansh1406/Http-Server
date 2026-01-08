@@ -158,6 +158,11 @@ void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, 
         std::cerr<< e.what() << std::endl;
         return;
     }
+    catch (...)
+    {
+        std::cerr << "Unknown error during response processing or sending." << std::endl;
+        return;
+    }
 }
 
 void http::HttpConnection::send_response(const http::HttpResponse &response)
