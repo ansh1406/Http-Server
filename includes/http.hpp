@@ -78,7 +78,8 @@ int main()
 {
     try
     {
-        http::HttpServer server(8080);
+        http::HttpServerConfig config{port: 8080, max_pending_connections: 10};
+        http::HttpServer server(config);
 
         server.add_route_handler("GET", "/hello", [](const http::HttpRequest &req, http::HttpResponse &res) {
             res.set_status_code(200);
