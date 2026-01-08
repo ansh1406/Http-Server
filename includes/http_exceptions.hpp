@@ -8,47 +8,6 @@ namespace http
 {
     namespace exceptions
     {
-        class BadRequest : public std::runtime_error
-        {
-        public:
-            BadRequest(const std::string& message = "")
-                : std::runtime_error("HTTP: 400 Bad Request" + (message.empty() ? "" : "\n" + message)) {}
-        };
-
-        class URITooLong : public std::runtime_error
-        {
-        public:
-            URITooLong(const std::string& message = "")
-                : std::runtime_error("HTTP: 414 URI Too Long" + (message.empty() ? "" : "\n" + message)) {}
-        };
-
-        class HeaderFieldsTooLarge : public std::runtime_error
-        {
-        public:
-            HeaderFieldsTooLarge(const std::string& message = "")
-                : std::runtime_error("HTTP: 431 Header Fields Too Large" + (message.empty() ? "" : "\n" + message)) {}
-        };
-
-        class PayloadTooLarge : public std::runtime_error
-        {
-        public:
-            PayloadTooLarge(const std::string& message = "")
-                : std::runtime_error("HTTP: 413 Payload Too Large" + (message.empty() ? "" : "\n" + message)) {}
-        };
-
-        class InternalServerError : public std::runtime_error
-        {
-        public:
-            InternalServerError(const std::string& message = "")
-                : std::runtime_error("HTTP: 500 Internal Server Error" + (message.empty() ? "" : "\n" + message)) {}
-        };
-
-        class NotFound : public std::runtime_error
-        {
-        public:
-            NotFound(const std::string& message = "")
-                : std::runtime_error("HTTP: 404 Not Found" + (message.empty() ? "" : "\n" + message)) {}
-        };
         
         class CanNotSendResponse : public std::runtime_error
         {
