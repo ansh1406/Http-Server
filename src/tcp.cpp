@@ -1,8 +1,9 @@
 #include "includes/tcp.hpp"
 #include <csignal>
 
-tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port)
+tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port , const unsigned int max_pending)
 {
+    max_pending_connections = max_pending;
     try
     {
         signal(SIGPIPE, SIG_IGN);
@@ -70,7 +71,7 @@ void tcp::ListeningSocket::bind_socket()
 
 void tcp::ListeningSocket::start_listening()
 {
-    if (listen(socket_fd.fd(), tcp::constants::BACKLOG) < 0)
+    if (listen(socket_fd.fd(), max_pending_connections) < 0)
     {
         int err = errno;
         throw tcp::exceptions::CanNotListenOnSocket{std::string("TCP: ") + std::string(strerror(err))};

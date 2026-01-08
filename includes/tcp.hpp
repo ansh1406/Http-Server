@@ -157,10 +157,12 @@ namespace tcp
         void bind_socket();
         void start_listening();
         SocketFD socket_fd;
+        unsigned int max_pending_connections;
 
     public:
-        explicit ListeningSocket(const in_addr_t ip, const Port port);
-        explicit ListeningSocket(const Port port) : ListeningSocket(constants::DEFAULT_ADDRESS, port) {}
+        ListeningSocket(const in_addr_t ip , const Port port , const unsigned int max_pending);
+        explicit ListeningSocket(const Port port , const unsigned int max_pending) : ListeningSocket(constants::DEFAULT_ADDRESS, port, max_pending) {}
+        explicit ListeningSocket(const Port port) : ListeningSocket(constants::DEFAULT_ADDRESS, port, constants::BACKLOG) {}
 
         ListeningSocket() = default;
 
