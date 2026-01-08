@@ -11,14 +11,14 @@
 struct http::HttpServer::Impl
 {
     tcp::ListeningSocket server_socket;
+    Impl(tcp::ListeningSocket &&sock) : server_socket(std::move(sock)) {}
 };
 
 http::HttpServer::HttpServer(HttpServerConfig config)
 {
     try
     {
-        pimpl = new Impl();
-        pimpl->server_socket = tcp::ListeningSocket(config.port, config.max_pending_connections);
+        pimpl = new Impl(std::move(tcp::ListeningSocket(config.port, config.max_pending_connections)));
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {

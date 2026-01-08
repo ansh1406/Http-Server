@@ -162,8 +162,6 @@ namespace tcp
         explicit ListeningSocket(const Port port , const unsigned int max_pending) : ListeningSocket(constants::DEFAULT_ADDRESS, port, max_pending) {}
         explicit ListeningSocket(const Port port) : ListeningSocket(constants::DEFAULT_ADDRESS, port, constants::BACKLOG) {}
 
-        ListeningSocket() = default;
-
         ListeningSocket(ListeningSocket &&) = default;
         ListeningSocket &operator=(ListeningSocket &&) = default;
 
