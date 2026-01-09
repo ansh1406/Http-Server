@@ -43,6 +43,9 @@ namespace http
         std::string get_ip();
         unsigned short get_port();
 
+        void log_info(const std::string &entry);
+        void log_error(const std::string &entry);
+    
     public:
         /// @brief Opens an HTTP/1.1 on the specified port. Over TCP.
         /// @param config Configuration for the HTTP server.

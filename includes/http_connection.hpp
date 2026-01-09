@@ -20,6 +20,8 @@ namespace http
         tcp::ConnectionSocket client_socket;
         void read_from_tcp(tcp::ConnectionSocket &client_socket);
         std::vector<char> read(tcp::ConnectionSocket &client_socket);
+        void log_info(const std::string &entry);
+        void log_error(const std::string &entry);
 
     public:
         /// @brief Construct a new Http Connection object

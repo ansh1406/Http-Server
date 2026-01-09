@@ -393,6 +393,26 @@ void http::HttpConnection::read_from_tcp(tcp::ConnectionSocket &client_socket)
     }
 }
 
+void http::HttpServer::log_info(const std::string &entry)
+{
+    Logger::get_instance().add_log_entry("[INFO] [SERVER] " + entry);
+}
+
+void http::HttpServer::log_error(const std::string &entry)
+{
+    Logger::get_instance().add_log_entry("[ERROR] [SERVER] " + entry);
+}
+
+void http::HttpConnection::log_info(const std::string &entry)
+{
+    Logger::get_instance().add_log_entry("[INFO] [CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + entry);
+}
+
+void http::HttpConnection::log_error(const std::string &entry)
+{
+    Logger::get_instance().add_log_entry("[ERROR] [CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + entry);
+}
+
 std::string http::HttpServer::get_ip(){
     return pimpl->server_socket.get_ip();
 }
