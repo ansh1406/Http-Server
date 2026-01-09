@@ -457,10 +457,6 @@ void http::HttpConnection::read_from_tcp(tcp::ConnectionSocket &client_socket)
     {
         std::vector<char> temp_buffer;
         temp_buffer = client_socket.receive_data(http::constants::SINGLE_READ_SIZE);
-        if (temp_buffer.empty())
-        {
-            throw;
-        }
         buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
     }
     catch (const tcp::exceptions::CanNotReceiveData &e)
