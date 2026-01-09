@@ -128,7 +128,7 @@ std::vector<char> tcp::ConnectionSocket::receive_data(const size_t max_size)
     try
     {
         ssize_t bytes_received = recv(socket_fd.fd(), buffer.data(), max_size, 0);
-        if (bytes_received < 0)
+        if (bytes_received <= 0)
         {
             int err = errno;
             throw tcp::exceptions::CanNotReceiveData{std::string(strerror(err))};
