@@ -392,3 +392,11 @@ void http::HttpConnection::read_from_tcp(tcp::ConnectionSocket &client_socket)
         throw http::exceptions::UnexpectedEndOfStream();
     }
 }
+
+std::string http::HttpServer::get_ip(){
+    return pimpl->server_socket.get_ip();
+}
+
+unsigned short http::HttpServer::get_port(){
+    return pimpl->server_socket.get_port();
+}

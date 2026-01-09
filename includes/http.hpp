@@ -40,6 +40,8 @@ namespace http
         /// @brief Pointer to the implementation.
         Impl *pimpl;
         std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> route_handlers;
+        std::string get_ip();
+        unsigned short get_port();
 
     public:
         /// @brief Opens an HTTP/1.1 on the specified port. Over TCP.
@@ -63,6 +65,7 @@ namespace http
         /// @param handler Accepts a callback function that takes an http::HttpRequest and http::HttpResponse as parameters.
         void add_route_handler(const std::string method, const std::string path,
                                const std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler);
+
     };
 }
 #endif // HTTP_HPP
