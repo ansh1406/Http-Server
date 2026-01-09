@@ -8,7 +8,6 @@
 #include "includes/http_response.hpp"
 #include "includes/logger.hpp"
 
-#include <iostream>
 #include <thread>
 #include <queue>
 #include <vector>
