@@ -10,6 +10,7 @@
 #include <string>
 #include <sstream>
 #include <chrono>
+#include <fstream>
 
 namespace http
 {
@@ -24,6 +25,8 @@ namespace http
         bool logger_done{false};
         std::thread logger_thread;
         bool stop{false};
+        std::ofstream log_stream;
+        bool external_logging{false};
         Logger()
         {
             try
@@ -46,7 +49,14 @@ namespace http
                         log_entry = log_queue.front();
                         log_queue.pop();
                     }
-                    std::cout << log_entry << std::endl;
+                    if (external_logging && log_stream.is_open())
+                    {
+                        log_stream << log_entry << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << log_entry << std::endl;
+                    }
                 } });
                 {
                     std::unique_lock<std::mutex> lock(logger_done_mutex);
@@ -80,10 +90,15 @@ namespace http
                 auto now = std::chrono::system_clock::now();
                 auto time = std::chrono::system_clock::to_time_t(now);
                 std::stringstream ss;
-                ss << "[ " << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << entry;
+                ss << "[" << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << entry;
                 log_queue.push(ss.str());
             }
             logger_cv.notify_one();
+        }
+        void set_external_logging(bool enable)
+        {
+            external_logging = enable;
+            log_stream.open("server.log",std::ios::app);
         }
         ~Logger()
         {

@@ -80,6 +80,7 @@ http::HttpServer::HttpServer(HttpServerConfig config)
             pimpl->ready_cv.wait(lock, [this, expected_ready]()
                                  { return pimpl->ready_threads == expected_ready; });
         }
+        http::Logger::get_instance().set_external_logging(config.external_logging);
         log_info("HTTP Server created successfully on port " + std::to_string(get_port()));
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
