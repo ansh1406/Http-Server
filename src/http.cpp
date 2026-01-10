@@ -68,8 +68,7 @@ http::HttpServer::HttpServer(HttpServerConfig config)
                 }
                 catch(...){
                     http::Logger::get_instance().add_log_entry("Unknown worker thread error.");
-                } } 
-            });
+                } } });
         }
 
         // Wait for all threads to be ready
@@ -139,6 +138,7 @@ void http::HttpServer::start()
 void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers)
 {
     std::vector<char> raw_request;
+    http::HttpResponse response;
     try
     {
         raw_request = read(client_socket);
@@ -146,82 +146,87 @@ void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, 
     catch (const http::exceptions::UnexpectedEndOfStream &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
+        response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::InvalidRequestLine &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
+        response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::InvalidChunkedEncoding &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
+        response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::InvalidContentLength &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
+        response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::MultipleContentLengthHeaders &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
+        response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::BothContentLengthAndChunked &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
+        response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::TransferEncodingWithoutChunked &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
+        response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::RequestLineTooLong &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::URI_TOO_LONG, "Invalid Request Line"));
+        response = http::HttpResponse(http::status_codes::URI_TOO_LONG, "Invalid Request Line");
         return;
     }
     catch (const http::exceptions::HeadersTooLarge &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large"));
+        response = http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large");
         return;
     }
     catch (const http::exceptions::BodyTooLarge &e)
     {
         log_error(e.what());
-        send_response(http::HttpResponse(http::status_codes::PAYLOAD_TOO_LARGE, "Payload Too Large"));
+        response = http::HttpResponse(http::status_codes::PAYLOAD_TOO_LARGE, "Payload Too Large");
         return;
     }
     catch (...)
     {
         log_error("Unknown error during request handling.");
-        send_response(http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error"));
+        response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
         return;
     }
 
-    HttpRequest request = http::HttpRequestParser::parse(raw_request);
-
-    
-    std::string path = http::HttpRequestParser::path_from_uri(request.uri());
-    
     try
     {
+        if (response)
+        {
+            send_response(response);
+            return;
+        }
+
+        HttpRequest request = http::HttpRequestParser::parse(raw_request);
+
+        std::string path = http::HttpRequestParser::path_from_uri(request.uri());
         log_info("Received request: " + request.method() + " " + path);
+
         if (route_handlers.find({request.method(), path}) == route_handlers.end())
         {
             log_error(std::string("No handler found for ") + request.method() + " " + path);
-            send_response(http::HttpResponse(http::status_codes::NOT_FOUND, "Not Found"));
+            response = http::HttpResponse(http::status_codes::NOT_FOUND, "Not Found");
             return;
         }
 
@@ -279,7 +284,6 @@ void http::HttpServer::add_route_handler(const std::string method, const std::st
 {
     route_handlers[{method, path}] = handler;
 }
-
 
 std::vector<char> http::HttpConnection::read(tcp::ConnectionSocket &client_socket)
 {
@@ -488,10 +492,12 @@ void http::HttpConnection::log_error(const std::string &entry)
     Logger::get_instance().add_log_entry("[ERROR] [CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + entry);
 }
 
-std::string http::HttpServer::get_ip(){
+std::string http::HttpServer::get_ip()
+{
     return pimpl->server_socket.get_ip();
 }
 
-unsigned short http::HttpServer::get_port(){
+unsigned short http::HttpServer::get_port()
+{
     return pimpl->server_socket.get_port();
 }
