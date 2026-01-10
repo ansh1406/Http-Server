@@ -36,7 +36,7 @@ namespace http
         /// @brief Generate and send HTTP response based on the request and route handlers
         /// @param route_handlers map of (method, path) pairs to their corresponding handler functions (callbacks)
         void handle(std::map<std::pair<std::string, std::string>,
-                             std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers);
+                             std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers) noexcept;
         void send_response(const http::HttpResponse &response);
 
         /// @return IP address of the connected client
