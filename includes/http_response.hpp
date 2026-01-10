@@ -54,6 +54,10 @@ namespace http
         /// @param key Header key as a std::string.
         /// @param value Header value as a std::string.
         void add_header(const std::string key, const std::string value) { _headers[key] = value; }
+
+        explicit operator bool() const{
+            return _status_code != 0;
+        }
     };
 }
 
