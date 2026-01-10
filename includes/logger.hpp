@@ -83,22 +83,28 @@ namespace http
             return instance;
         }
 
-        void add_log_entry(const std::string &entry)
+        void add_log_entry(const std::string &entry) noexcept
         {
+            try
             {
-                std::unique_lock<std::mutex> lock(logger_mutex);
-                auto now = std::chrono::system_clock::now();
-                auto time = std::chrono::system_clock::to_time_t(now);
-                std::stringstream ss;
-                ss << "[" << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << entry;
-                log_queue.push(ss.str());
+                {
+                    std::unique_lock<std::mutex> lock(logger_mutex);
+                    auto now = std::chrono::system_clock::now();
+                    auto time = std::chrono::system_clock::to_time_t(now);
+                    std::stringstream ss;
+                    ss << "[" << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << entry;
+                    log_queue.push(ss.str());
+                }
+                logger_cv.notify_one();
             }
-            logger_cv.notify_one();
+            catch (...){
+                // Suppress all exceptions in logging
+            }
         }
         void set_external_logging(bool enable)
         {
             external_logging = enable;
-            log_stream.open("server.log",std::ios::app);
+            log_stream.open("server.log", std::ios::app);
         }
         ~Logger()
         {
