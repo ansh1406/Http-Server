@@ -29,12 +29,14 @@ namespace http
         unsigned short port;
         unsigned int max_pending_connections;
         unsigned int max_parallel_connections;
+        time_t inactive_connection_timeout; // in milliseconds
         bool external_logging;
         HttpServerConfig(unsigned short p = 8080,
                          unsigned int max_pending = 10,
                          unsigned int max_parallel = 0,
+                         time_t inactive_timeout = 30000,
                          bool external_log = false)
-            : port(p), max_pending_connections(max_pending), max_parallel_connections(max_parallel), external_logging(external_log) {}
+            : port(p), max_pending_connections(max_pending), max_parallel_connections(max_parallel), inactive_connection_timeout(inactive_timeout), external_logging(external_log) {}
     };
 
     /// @brief A simple HTTP server.
@@ -46,6 +48,7 @@ namespace http
         struct Impl;
         /// @brief Pointer to the implementation.
         Impl *pimpl;
+        HttpServerConfig& config;
         std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> route_handlers;
         std::string get_ip();
         unsigned short get_port();
