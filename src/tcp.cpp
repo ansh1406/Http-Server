@@ -2,7 +2,7 @@
 #include <csignal>
 #include <cstring>
 
-tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port , const unsigned int max_pending)
+tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port, const unsigned int max_pending)
 {
     max_pending_connections = max_pending;
     try
@@ -79,18 +79,51 @@ void tcp::ListeningSocket::start_listening()
     }
 }
 
-tcp::ConnectionSocket tcp::ListeningSocket::accept_connection()
+tcp::ConnectionSocket tcp::ListeningSocket::accept_connection(const time_t timeout_ms)
 {
-    sockaddr_in client_addr{};
-    socklen_t client_len = sizeof(client_addr);
-    tcp::SocketHandle sock = accept(socket_fd.fd(), reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
-    if (sock < 0)
+    try
     {
-        int err = errno;
-        throw tcp::exceptions::CanNotAcceptConnection{std::string("TCP: ") + std::string(strerror(err))};
+        sockaddr_in client_addr{};
+        socklen_t client_len = sizeof(client_addr);
+        tcp::SocketHandle sock = accept(socket_fd.fd(), reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
+        if (sock < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotAcceptConnection{std::string("TCP: ") + std::string(strerror(err))};
+        }
+        // Set send and receive timeouts
+        struct timeval timeout;
+        timeout.tv_sec = timeout_ms / 1000;
+        timeout.tv_usec = (timeout_ms % 1000) * 1000;
+        if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotSetSocketOptions{std::string(strerror(err))};
+        }
+        if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotSetSocketOptions{std::string(strerror(err))};
+        }
+        ConnectionSocket client_socket(sock, client_addr);
+        return client_socket;
     }
-    ConnectionSocket client_socket(sock, client_addr);
-    return client_socket;
+    catch (const tcp::exceptions::CanNotAcceptConnection &e)
+    {
+        throw;
+    }
+    catch (const tcp::exceptions::CanNotSetSocketOptions &e)
+    {
+        throw tcp::exceptions::CanNotAcceptConnection{"TCP: Failed to set socket options: " + std::string(e.what())};
+    }
+    catch (const std::exception &e)
+    {
+        throw tcp::exceptions::CanNotAcceptConnection{"TCP: Failed to accept connection: " + std::string(e.what())};
+    }
+    catch (...)
+    {
+        throw tcp::exceptions::CanNotAcceptConnection{"TCP: Unknown error while accepting connection."};
+    }
 }
 
 void tcp::ConnectionSocket::send_data(const std::vector<char> &data)
