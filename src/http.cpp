@@ -14,7 +14,7 @@ struct http::HttpServer::Impl
     Impl(tcp::ListeningSocket &&sock) : server_socket(std::move(sock)) {}
 };
 
-http::HttpServer::HttpServer(HttpServerConfig config)
+http::HttpServer::HttpServer(HttpServerConfig _config):config(_config)
 {
     try
     {
@@ -43,7 +43,7 @@ void http::HttpServer::start()
     {
         try
         {
-            tcp::ConnectionSocket client_socket = pimpl->server_socket.accept_connection();
+            tcp::ConnectionSocket client_socket = pimpl->server_socket.accept_connection(config.inactive_connection_timeout);
             HttpConnection connection(std::move(client_socket));
             std::cout << "Connection accepted." << std::endl;
             std::cout << "Ip: " << connection.get_ip() << std::endl;
