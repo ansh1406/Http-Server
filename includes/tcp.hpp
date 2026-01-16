@@ -174,7 +174,7 @@ namespace tcp
         }
         /// @brief Accepts an incoming connection and returns a ConnectionSocket object
         /// @return ConnectionSocket representing the accepted connection
-        ConnectionSocket accept_connection();
+        ConnectionSocket accept_connection(const time_t timeout_ms = 30000);
 
         /// @return IP address the socket is bound to as a string
         std::string get_ip() const
