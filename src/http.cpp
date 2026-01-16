@@ -42,7 +42,7 @@ http::HttpServer::HttpServer(HttpServerConfig config)
         pimpl->worker_threads.resize(config.max_parallel_connections);
         for (unsigned int i = 0; i < config.max_parallel_connections; ++i)
         {
-            pimpl->worker_threads[i] = std::thread([this, config]()
+            pimpl->worker_threads[i] = std::thread([this]()
                                                    {
                 {
                     std::unique_lock<std::mutex> lock(pimpl->ready_mutex);
