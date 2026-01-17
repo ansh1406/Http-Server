@@ -68,7 +68,7 @@ void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, 
         std::vector<char> raw_request;
         try
         {
-            raw_request = read(client_socket);
+            raw_request = read();
         }
         catch (const http::exceptions::UnexpectedEndOfStream &e)
         {
@@ -216,7 +216,7 @@ void http::HttpServer::add_route_handler(const std::string method, const std::st
     route_handlers[{method, path}] = handler;
 }
 
-std::vector<char> http::HttpConnection::read(tcp::ConnectionSocket &client_socket)
+std::vector<char> http::HttpConnection::read()
 {
     try
     {
@@ -247,7 +247,7 @@ std::vector<char> http::HttpConnection::read(tcp::ConnectionSocket &client_socke
             }
             if (found_end_of_request_line)
                 break;
-            read_from_tcp(client_socket);
+            read_from_client();
         }
 
         if (!http::HttpRequestParser::validate_request_line(request_data))
@@ -298,7 +298,7 @@ std::vector<char> http::HttpConnection::read(tcp::ConnectionSocket &client_socke
             }
             if (found_end_of_headers)
                 break;
-            read_from_tcp(client_socket);
+            read_from_client();
         }
 
         // Read the body if present
@@ -326,7 +326,7 @@ std::vector<char> http::HttpConnection::read(tcp::ConnectionSocket &client_socke
                     if (remaining == 0)
                         break;
 
-                    read_from_tcp(client_socket);
+                    read_from_client();
                 }
             }
             else if (has_chunked_transfer_encoding)
@@ -351,7 +351,7 @@ std::vector<char> http::HttpConnection::read(tcp::ConnectionSocket &client_socke
                         }
                         if (found_end_of_chunk_size_line)
                             break;
-                        read_from_tcp(client_socket);
+                        read_from_client();
                     }
                     request_data.insert(request_data.end(), chunk_size_line.begin(), chunk_size_line.end());
 
@@ -368,7 +368,7 @@ std::vector<char> http::HttpConnection::read(tcp::ConnectionSocket &client_socke
                         remaining -= to_read;
                         if (remaining == 0)
                             break;
-                        read_from_tcp(client_socket);
+                        read_from_client();
                     }
                     if (chunk_size == 0)
                     {
@@ -385,7 +385,7 @@ std::vector<char> http::HttpConnection::read(tcp::ConnectionSocket &client_socke
     }
 }
 
-void http::HttpConnection::read_from_tcp(tcp::ConnectionSocket &client_socket)
+void http::HttpConnection::read_from_client()
 {
     try
     {
