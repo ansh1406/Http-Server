@@ -18,8 +18,8 @@ namespace http
     private:
         std::vector<char> buffer;
         tcp::ConnectionSocket client_socket;
-        void read_from_tcp(tcp::ConnectionSocket &client_socket);
-        std::vector<char> read(tcp::ConnectionSocket &client_socket);
+        void read_from_client();
+        std::vector<char> read();
         void log_info(const std::string &entry);
         void log_error(const std::string &entry);
 

@@ -44,11 +44,10 @@ namespace http
     {
     private:
         /// @brief Pointer to incomplete implementation to abstract away tcp layer details.
-        /// @param server_socket Holds the tcp::ListeningSocket.
         struct Impl;
         /// @brief Pointer to the implementation.
         Impl *pimpl;
-        HttpServerConfig& config;
+        HttpServerConfig config;
         std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> route_handlers;
         std::string get_ip();
         unsigned short get_port();
