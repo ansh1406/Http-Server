@@ -51,7 +51,7 @@ void http::HttpServer::start()
             {
                 std::vector<int> events = pimpl->event_manager.wait_for_events();
 
-                if (pimpl->event_manager.get_status(server_id) & tcp::socket_status::READABLE)
+                if (pimpl->event_manager.is_readable(server_id))
                 {
                     std::vector<tcp::ConnectionSocket> new_connections = pimpl->server_socket.accept_connections();
                     for (auto &conn : new_connections)
@@ -70,11 +70,11 @@ void http::HttpServer::start()
                     if (conn_id == server_id)
                         continue;
                     HttpConnection &connection = connections.at(conn_id);
-                    if (pimpl->event_manager.get_status(conn_id) & tcp::socket_status::READABLE)
+                    if (pimpl->event_manager.is_readable(conn_id))
                     {
                         connection.peer_status |= connection_status::WRITING;
                     }
-                    if (pimpl->event_manager.get_status(conn_id) & tcp::socket_status::WRITABLE)
+                    if (pimpl->event_manager.is_writable(conn_id))
                     {
                         connection.peer_status |= connection_status::READING;
                     }

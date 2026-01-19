@@ -221,9 +221,14 @@ namespace tcp
             }
         }
 
-        const int get_status(const int id) const
+        const bool is_readable(const int id) const
         {
-            return status.at(id);
+            return status.at(id) & socket_status::READABLE;
+        }
+
+        const bool is_writable(const int id) const
+        {
+            return status.at(id) & socket_status::WRITABLE;
         }
 
         void clear_status(const int id)
