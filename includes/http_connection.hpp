@@ -46,7 +46,8 @@ namespace http
         int current_request_status = request_status::CONNECTION_ESTABLISHED;
         long buffer_cursor = 0;
         size_t parser_cursor = 0;
-        
+        int peer_status = connection_status::IDLE;
+
         void read_from_client();
         void read_request_line();
         void read_headers();
@@ -54,30 +55,55 @@ namespace http
         void read_body(); // For chunked transfer encoding
 
     public:
-        int peer_status = connection_status::IDLE;
 
         /// @brief Construct a new Http Connection object
         /// @param socket The TCP connection socket associated with this HTTP connection
         explicit HttpConnection(tcp::ConnectionSocket &&socket)
-        : client_socket(std::move(socket)) {}
-        
+            : client_socket(std::move(socket)) {}
+
         HttpConnection(const HttpConnection &) = delete;
         HttpConnection &operator=(const HttpConnection &) = delete;
-        
+
         HttpConnection(HttpConnection &&) = default;
         HttpConnection &operator=(HttpConnection &&) = default;
-        
+
         void read_request();
         /// @brief Generate and send HTTP response based on the request and route handlers
         /// @param route_handlers map of (method, path) pairs to their corresponding handler functions (callbacks)
         void handle_request(std::map<std::pair<std::string, std::string>,
-            std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers) noexcept;
-            void send_response();
-            
-            const int status() const
-            {
-                return current_request_status;
-            }
+                                     std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers) noexcept;
+        
+        void send_response();
+
+        void set_peer_idle()
+        {
+            peer_status = connection_status::IDLE;
+        }
+
+        void set_peer_reading()
+        {
+            peer_status |= connection_status::READING;
+        }
+
+        void set_peer_writing()
+        {
+            peer_status |= connection_status::WRITING;
+        }
+
+        const bool peer_is_readable() const
+        {
+            return peer_status & connection_status::WRITING;
+        }
+
+        const bool peer_is_writable() const
+        {
+            return peer_status & connection_status::READING;
+        }
+
+        const int status() const
+        {
+            return current_request_status;
+        }
 
         /// @return IP address of the connected client
         std::string get_ip() const

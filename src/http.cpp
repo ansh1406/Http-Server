@@ -72,11 +72,11 @@ void http::HttpServer::start()
                     HttpConnection &connection = connections.at(conn_id);
                     if (pimpl->event_manager.is_readable(conn_id))
                     {
-                        connection.peer_status |= connection_status::WRITING;
+                        connection.set_peer_writing();
                     }
                     if (pimpl->event_manager.is_writable(conn_id))
                     {
-                        connection.peer_status |= connection_status::READING;
+                        connection.set_peer_reading();
                     }
                 }
 
@@ -84,10 +84,12 @@ void http::HttpServer::start()
                 {
                     if (conn_id == server_id)
                         continue;
-                    pimpl->event_manager.clear_status(conn_id);
+
                     HttpConnection &connection = connections.at(conn_id);
                     connection.handle_request(route_handlers);
-                    connection.peer_status = connection_status::IDLE;
+
+                    pimpl->event_manager.clear_status(conn_id);
+                    connection.set_peer_idle();
 
                     if (connection.status() == request_status::SENDING_RESPONSE)
                     {
@@ -129,7 +131,7 @@ void http::HttpConnection::handle_request(std::map<std::pair<std::string, std::s
     {
         if (current_request_status == request_status::CONNECTION_ESTABLISHED || current_request_status == request_status::READING_REQUEST_LINE || current_request_status == request_status::REQUEST_LINE_DONE || current_request_status == request_status::READING_HEADERS || current_request_status == request_status::HEADERS_DONE || current_request_status == request_status::READING_BODY)
         {
-            if (peer_status & connection_status::WRITING)
+            if (peer_is_readable())
                 read_request();
         }
         if (current_request_status == request_status::REQUEST_READING_DONE)
@@ -147,12 +149,12 @@ void http::HttpConnection::handle_request(std::map<std::pair<std::string, std::s
                 current_response.add_header(http::headers::CONNECTION, "close");
                 current_response.add_header(http::headers::CONTENT_LENGTH, std::to_string(current_response.body().size()));
             }
-            if (peer_status & connection_status::READING)
+            if (peer_is_writable())
                 send_response();
         }
         if (current_request_status == request_status::SENDING_RESPONSE || current_request_status == request_status::SERVER_ERROR)
         {
-            if (peer_status & connection_status::READING)
+            if (peer_is_writable())
                 send_response();
         }
     }
@@ -163,7 +165,7 @@ void http::HttpConnection::handle_request(std::map<std::pair<std::string, std::s
         {
             current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
             current_request_status = request_status::SERVER_ERROR;
-            if (peer_status & connection_status::READING)
+            if (peer_is_writable())
                 send_response();
         }
         catch (...)
@@ -177,7 +179,7 @@ void http::HttpConnection::handle_request(std::map<std::pair<std::string, std::s
         {
             current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
             current_request_status = request_status::SERVER_ERROR;
-            if (peer_status & connection_status::READING)
+            if (peer_is_writable())
                 send_response();
         }
         catch (...)
