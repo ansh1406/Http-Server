@@ -401,7 +401,7 @@ void http::HttpConnection::read_request_line()
                 break;
             }
 
-            if (pos >= http::constants::MAX_REQUEST_LINE)
+            if (pos >= 8192) // 8 KB
             {
                 throw http::exceptions::RequestLineTooLong();
             }
@@ -438,7 +438,7 @@ void http::HttpConnection::read_headers()
                 last_header_end = pos;
             }
 
-            if ((long)(pos - header_start) >= http::constants::MAX_HEADER_SIZE)
+            if ((long)(pos - header_start) >= 8192) // 8 KB
             {
                 throw http::exceptions::HeadersTooLarge();
             }

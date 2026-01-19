@@ -1,7 +1,6 @@
 #ifndef HTTP_HPP
 #define HTTP_HPP
 
-#include "http_constants.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 
