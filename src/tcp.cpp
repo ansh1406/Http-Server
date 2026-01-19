@@ -1,6 +1,7 @@
 #include "includes/tcp.hpp"
 #include <csignal>
 #include <cstring>
+#include <fcntl.h>
 
 tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port, const unsigned int max_pending)
 {
@@ -49,6 +50,14 @@ tcp::SocketFD tcp::ListeningSocket::create_socket()
         int err = errno;
         throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
     }
+    int flags = fcntl(sock.fd(), F_GETFL, 0);
+    if(flags == -1) flags = 0;
+    flags |= O_NONBLOCK;
+    if (fcntl(sock.fd(), F_SETFL, flags) < 0)
+    {
+        int err = errno;
+        throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
+    }
     return sock;
 }
 
@@ -79,34 +88,37 @@ void tcp::ListeningSocket::start_listening()
     }
 }
 
-tcp::ConnectionSocket tcp::ListeningSocket::accept_connection(const time_t timeout_ms)
+std::vector<tcp::ConnectionSocket> tcp::ListeningSocket::accept_connections()
 {
     try
     {
-        sockaddr_in client_addr{};
-        socklen_t client_len = sizeof(client_addr);
-        tcp::SocketHandle sock = accept(socket_fd.fd(), reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
-        if (sock < 0)
+        std::vector<ConnectionSocket> connections;
+        while (true)
         {
-            int err = errno;
-            throw tcp::exceptions::CanNotAcceptConnection{std::string("TCP: ") + std::string(strerror(err))};
+            sockaddr_in client_addr{};
+            socklen_t client_len = sizeof(client_addr);
+            tcp::SocketHandle sock = accept(socket_fd.fd(), reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
+            if (sock < 0)
+            {
+                int err = errno;
+                if(err == EAGAIN || err == EWOULDBLOCK)
+                {
+                    break;
+                }
+                throw tcp::exceptions::CanNotAcceptConnection{std::string("TCP: ") + std::string(strerror(err))};
+            }
+            int flags = fcntl(sock, F_GETFL, 0);
+            if(flags == -1) flags = 0;
+            flags |= O_NONBLOCK;
+            if (fcntl(sock, F_SETFL, flags) < 0)
+            {
+                int err = errno;
+                throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
+            }
+            ConnectionSocket client_socket(sock, client_addr);
+            connections.push_back(std::move(client_socket));
         }
-        // Set send and receive timeouts
-        struct timeval timeout;
-        timeout.tv_sec = timeout_ms / 1000;
-        timeout.tv_usec = (timeout_ms % 1000) * 1000;
-        if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
-        {
-            int err = errno;
-            throw tcp::exceptions::CanNotSetSocketOptions{std::string(strerror(err))};
-        }
-        if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0)
-        {
-            int err = errno;
-            throw tcp::exceptions::CanNotSetSocketOptions{std::string(strerror(err))};
-        }
-        ConnectionSocket client_socket(sock, client_addr);
-        return client_socket;
+        return connections;
     }
     catch (const tcp::exceptions::CanNotAcceptConnection &e)
     {
