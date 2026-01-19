@@ -1,6 +1,7 @@
 #include "includes/http_parser.hpp"
 #include "includes/http_exceptions.hpp"
 #include "includes/http_request.hpp"
+#include "includes/http_response.hpp"
 #include "includes/http_constants.hpp"
 
 #include <cctype>
@@ -112,18 +113,6 @@ std::vector<char> http::HttpRequestParser::parse_body(const std::vector<char> &r
     return body;
 }
 
-http::HttpRequest http::HttpRequestParser::parse(const std::vector<char> &raw_request)
-{
-    size_t pos = 0;
-
-    auto request_line = parse_request_line(raw_request, pos);
-    auto headers = parse_headers(raw_request, pos);
-    auto body = parse_body(raw_request, pos, headers);
-
-    http::HttpRequest request(request_line.method, request_line.uri, request_line.version, headers, body);
-    return request;
-}
-
 std::string http::HttpRequestParser::path_from_uri(const std::string &uri)
 {
     size_t query_pos = uri.find('?');
@@ -164,16 +153,20 @@ std::string http::HttpRequestParser::path_from_uri(const std::string &uri)
     return normalized_path.empty() ? "/" : normalized_path;
 }
 
-bool http::HttpRequestParser::validate_request_line(const std::vector<char> &request_line)
+bool http::HttpRequestParser::validate_request_line(const std::vector<char> &buffer)
 {
     // Method SP Request-URI SP HTTP-Version CRLF
     // SP count should be 2 in a valid request line
     int space_count = 0;
-    for (char c : request_line)
+    for (long pos = 0; pos < (long)buffer.size(); pos++)
     {
-        if (c == ' ')
+        if (buffer[pos] == ' ')
         {
             ++space_count;
+        }
+        if( buffer[pos] == '\r' && buffer[pos + 1] == '\n')
+        {
+            break;
         }
     }
     return space_count == 2;
@@ -245,4 +238,24 @@ long http::HttpRequestParser::is_content_length_header(const std::vector<char> &
         }
     }
     return -1;
+}
+
+std::vector<char> http::HttpRequestParser::create_response_buffer(const http::HttpResponse &response)
+{
+    std::vector<char> buffer;
+    std::string status_line = response.version() + " " + std::to_string(response.status_code()) + " " + response.status_message() + "\r\n";
+    buffer.insert(buffer.end(), status_line.begin(), status_line.end());
+
+    for (const auto &header : response.headers())
+    {
+        std::string header_line = header.first + ": " + header.second + "\r\n";
+        buffer.insert(buffer.end(), header_line.begin(), header_line.end());
+    }
+
+    buffer.insert(buffer.end(), '\r');
+    buffer.insert(buffer.end(), '\n');
+
+    buffer.insert(buffer.end(), response.body().begin(), response.body().end());
+
+    return buffer;
 }

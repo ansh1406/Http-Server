@@ -28,8 +28,10 @@ namespace http
     {
         unsigned short port;
         unsigned int max_pending_connections;
+        unsigned int max_concurrent_connections;
         time_t inactive_connection_timeout;
     };
+    class HttpConnection;
 
     /// @brief A simple HTTP server.
     class HttpServer
@@ -41,6 +43,7 @@ namespace http
         /// @brief Pointer to the implementation.
         Impl *pimpl;
         HttpServerConfig config;
+        std::map<int, HttpConnection> connections;
         std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> route_handlers;
         std::string get_ip();
         unsigned short get_port();

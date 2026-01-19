@@ -5,20 +5,23 @@
 #include "includes/http_constants.hpp"
 #include "includes/http_request.hpp"
 #include "includes/http_response.hpp"
+#include "includes/tcp.hpp"
+#include "includes/event_manager.hpp"
 
 #include <iostream>
 
 struct http::HttpServer::Impl
 {
     tcp::ListeningSocket server_socket;
-    Impl(tcp::ListeningSocket &&sock) : server_socket(std::move(sock)) {}
+    tcp::EventManager event_manager;
+    Impl(tcp::ListeningSocket &&sock, tcp::EventManager &&em) : server_socket(std::move(sock)), event_manager(std::move(em)) {}
 };
 
-http::HttpServer::HttpServer(HttpServerConfig _config):config(_config)
+http::HttpServer::HttpServer(HttpServerConfig _config) : config(_config)
 {
     try
     {
-        pimpl = new Impl(std::move(tcp::ListeningSocket(config.port, config.max_pending_connections)));
+        pimpl = new Impl(std::move(tcp::ListeningSocket(config.port, config.max_pending_connections)), std::move(tcp::EventManager(config.max_concurrent_connections + 1, -1)));
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {
@@ -39,140 +42,143 @@ http::HttpServer::~HttpServer()
 
 void http::HttpServer::start()
 {
-    while (true)
+    try
     {
-        try
+        int server_id = pimpl->event_manager.register_socket(pimpl->server_socket.fd());
+        while (true)
         {
-            tcp::ConnectionSocket client_socket = pimpl->server_socket.accept_connection(config.inactive_connection_timeout);
-            HttpConnection connection(std::move(client_socket));
-            std::cout << "Connection accepted." << std::endl;
-            std::cout << "Ip: " << connection.get_ip() << std::endl;
-            std::cout << "Port: " << connection.get_port() << std::endl;
-            connection.handle(route_handlers);
+            try
+            {
+                std::vector<int> events = pimpl->event_manager.wait_for_events();
+
+                if (pimpl->event_manager.get_status(server_id) & tcp::socket_status::READABLE)
+                {
+                    std::vector<tcp::ConnectionSocket> new_connections = pimpl->server_socket.accept_connections();
+                    for (auto &conn : new_connections)
+                    {
+                        int conn_id = pimpl->event_manager.register_socket(conn.fd());
+                        connections.insert({conn_id, http::HttpConnection(std::move(conn))});
+                        std::cout << "Connection Accepted." << std::endl;
+                        std::cout << "IP: " << connections.at(conn_id).get_ip() << std::endl;
+                        std::cout << "Port: " << connections.at(conn_id).get_port() << std::endl;
+                    }
+                    pimpl->event_manager.clear_status(server_id);
+                }
+
+                for (auto conn_id : events)
+                {
+                    if (conn_id == server_id)
+                        continue;
+                    HttpConnection &connection = connections.at(conn_id);
+                    if (pimpl->event_manager.get_status(conn_id) & tcp::socket_status::READABLE)
+                    {
+                        connection.peer_status |= connection_status::WRITING;
+                    }
+                    if (pimpl->event_manager.get_status(conn_id) & tcp::socket_status::WRITABLE)
+                    {
+                        connection.peer_status |= connection_status::READING;
+                    }
+                }
+
+                for (auto conn_id : events)
+                {
+                    if (conn_id == server_id)
+                        continue;
+                    pimpl->event_manager.clear_status(conn_id);
+                    HttpConnection &connection = connections.at(conn_id);
+                    connection.handle_request(route_handlers);
+                    connection.peer_status = connection_status::IDLE;
+
+                    if (connection.status() == request_status::SENDING_RESPONSE)
+                    {
+                        pimpl->event_manager.add_to_write_monitoring(conn_id);
+                    }
+
+                    if (connection.status() == request_status::COMPLETED || connection.status() == request_status::CLIENT_ERROR)
+                    {
+                        pimpl->event_manager.remove_socket(conn_id);
+                        connections.erase(conn_id);
+                    }
+                }
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << e.what() << std::endl;
+            }
+            catch (...)
+            {
+                std::cerr << "Unknown unexpected error." << std::endl;
+            }
         }
-        catch (const std::exception &e)
-        {
-            std::cerr << e.what() << std::endl;
-        }
-        catch (...)
-        {
-            std::cerr << "Unknown unexpected error." << std::endl;
-        }
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Fatal error starting server: " << e.what() << std::endl;
+        throw;
+    }
+    catch (...)
+    {
+        std::cerr << "Unknown fatal error starting server." << std::endl;
+        throw;
     }
 }
 
-void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers) noexcept
+void http::HttpConnection::handle_request(std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers) noexcept
 {
     try
     {
-        std::vector<char> raw_request;
-        try
+        if (current_request_status == request_status::CONNECTION_ESTABLISHED || current_request_status == request_status::READING_REQUEST_LINE || current_request_status == request_status::REQUEST_LINE_DONE || current_request_status == request_status::READING_HEADERS || current_request_status == request_status::HEADERS_DONE || current_request_status == request_status::READING_BODY)
         {
-            raw_request = read();
+            if (peer_status & connection_status::WRITING)
+                read_request();
         }
-        catch (const http::exceptions::UnexpectedEndOfStream &e)
+        if (current_request_status == request_status::REQUEST_READING_DONE)
         {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
-            return;
-        }
-        catch (const http::exceptions::InvalidRequestLine &e)
-        {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
-            return;
-        }
-        catch (const http::exceptions::InvalidChunkedEncoding &e)
-        {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
-            return;
-        }
-        catch (const http::exceptions::InvalidContentLength &e)
-        {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
-            return;
-        }
-        catch (const http::exceptions::MultipleContentLengthHeaders &e)
-        {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
-            return;
-        }
-        catch (const http::exceptions::BothContentLengthAndChunked &e)
-        {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
-            return;
-        }
-        catch (const http::exceptions::TransferEncodingWithoutChunked &e)
-        {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request"));
-            return;
-        }
-        catch (const http::exceptions::RequestLineTooLong &e)
-        {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::URI_TOO_LONG, "Invalid Request Line"));
-            return;
-        }
-        catch (const http::exceptions::HeadersTooLarge &e)
-        {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large"));
-            return;
-        }
-        catch (const http::exceptions::BodyTooLarge &e)
-        {
-            std::cerr << e.what() << std::endl;
-            send_response(http::HttpResponse(http::status_codes::PAYLOAD_TOO_LARGE, "Payload Too Large"));
-            return;
-        }
-        catch (...)
-        {
-            std::cerr << "Unknown error during request handling." << std::endl;
-            send_response(http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error"));
-            return;
-        }
+            std::string path = http::HttpRequestParser::path_from_uri(current_request.uri);
 
-        HttpRequest request = http::HttpRequestParser::parse(raw_request);
-
-        std::string path = http::HttpRequestParser::path_from_uri(request.uri());
-
-        try
-        {
-            if (route_handlers.find({request.method(), path}) == route_handlers.end())
+            if (route_handlers.find({current_request.method, path}) == route_handlers.end())
             {
-                std::cerr << "No handler found for " << request.method() << " " << path << std::endl;
-                send_response(http::HttpResponse(http::status_codes::NOT_FOUND, "Not Found"));
-                return;
+                std::cerr << "No handler found for " << current_request.method << " " << path << std::endl;
+                current_response = http::HttpResponse(http::status_codes::NOT_FOUND, "Not Found");
             }
-
-            http::HttpResponse response;
-            route_handlers[{request.method(), path}](request, response);
-            response.add_header(http::headers::CONNECTION, "close");
-            response.add_header(http::headers::CONTENT_LENGTH, std::to_string(response.body().size()));
-
-            send_response(response);
+            else
+            {
+                route_handlers[{current_request.method, path}](current_request, current_response);
+                current_response.add_header(http::headers::CONNECTION, "close");
+                current_response.add_header(http::headers::CONTENT_LENGTH, std::to_string(current_response.body().size()));
+            }
+            if (peer_status & connection_status::READING)
+                send_response();
         }
-        catch (const std::exception &e)
+        if (current_request_status == request_status::SENDING_RESPONSE || current_request_status == request_status::SERVER_ERROR)
         {
-            std::cerr << e.what() << std::endl;
-            return;
+            if (peer_status & connection_status::READING)
+                send_response();
+        }
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << e.what() << std::endl;
+        try
+        {
+            current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+            current_request_status = request_status::SERVER_ERROR;
+            if (peer_status & connection_status::READING)
+                send_response();
         }
         catch (...)
         {
-            std::cerr << "Unknown error during response processing or sending." << std::endl;
-            return;
+            // Suppress all exceptions in the outermost catch to avoid termination
         }
     }
     catch (...)
     {
         try
         {
-            send_response(http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error"));
+            current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+            current_request_status = request_status::SERVER_ERROR;
+            if (peer_status & connection_status::READING)
+                send_response();
         }
         catch (...)
         {
@@ -181,32 +187,30 @@ void http::HttpConnection::handle(std::map<std::pair<std::string, std::string>, 
     }
 }
 
-void http::HttpConnection::send_response(const http::HttpResponse &response)
+void http::HttpConnection::send_response()
 {
     try
     {
-        std::string status_line = response.version() + " " + std::to_string(response.status_code()) + " " + response.status_message() + "\r\n";
-        client_socket.send_data(std::vector<char>(status_line.begin(), status_line.end()));
-
-        for (const auto &header : response.headers())
+        if (current_request_status == request_status::REQUEST_READING_DONE || current_request_status == request_status::SERVER_ERROR)
         {
-            std::string header_line = header.first + ": " + header.second + "\r\n";
-            client_socket.send_data(std::vector<char>(header_line.begin(), header_line.end()));
+            buffer.clear();
+            buffer_cursor = 0;
+            buffer = http::HttpRequestParser::create_response_buffer(current_response);
+            current_request_status = request_status::SENDING_RESPONSE;
         }
-
-        client_socket.send_data(std::vector<char>({'\r', '\n'}));
-
-        if (!response.body().empty())
-        {
-            client_socket.send_data(response.body());
-        }
+        int sent_bytes = client_socket.send_data(buffer, buffer_cursor);
+        buffer_cursor += sent_bytes;
+        if (buffer_cursor == buffer.size())
+            current_request_status = request_status::COMPLETED;
     }
     catch (const tcp::exceptions::CanNotSendData &e)
     {
+        current_request_status = request_status::CLIENT_ERROR;
         throw http::exceptions::CanNotSendResponse(std::string(e.what()));
     }
     catch (...)
     {
+        current_request_status = request_status::CLIENT_ERROR;
         throw http::exceptions::CanNotSendResponse();
     }
 }
@@ -216,168 +220,278 @@ void http::HttpServer::add_route_handler(const std::string method, const std::st
     route_handlers[{method, path}] = handler;
 }
 
-std::vector<char> http::HttpConnection::read()
+void http::HttpConnection::read_request()
 {
     try
     {
-        std::vector<char> request_data;
-        std::vector<char> temp_buffer;
-        bool request_has_body{false};
-        bool has_chunked_transfer_encoding{false};
-        long content_length{-1};
-        // For reading the request line
-        while (true) // Read until we find the end of the request line
+        static long body_size = -1;
+        static bool has_chunked_body = false;
+        read_from_client();
+        if (current_request_status == request_status::CONNECTION_ESTABLISHED)
         {
-            long pos{0};
-            bool found_end_of_request_line{false};
-            for (; pos < (long)buffer.size() - 1; pos++)
+            current_request_status = request_status::READING_REQUEST_LINE;
+        }
+        if (current_request_status == request_status::READING_REQUEST_LINE)
+        {
+            read_request_line();
+        }
+        if (current_request_status == request_status::REQUEST_LINE_DONE)
+        {
+            if (!http::HttpRequestParser::validate_request_line(buffer))
             {
-                if (buffer[pos] == '\r' && buffer[pos + 1] == '\n') // End of request line found
+                throw http::exceptions::InvalidRequestLine();
+            }
+            else
+            {
+                http::HttpRequestLine req_line = http::HttpRequestParser::parse_request_line(buffer, parser_cursor);
+                current_request.method = req_line.method;
+                current_request.uri = req_line.uri;
+                current_request.version = req_line.version;
+                current_request_status = request_status::READING_HEADERS;
+            }
+        }
+        if (current_request_status == request_status::READING_HEADERS)
+        {
+            read_headers();
+        }
+        if (current_request_status == request_status::HEADERS_DONE)
+        {
+            current_request.headers = http::HttpRequestParser::parse_headers(buffer, parser_cursor);
+            for (auto &header : current_request.headers)
+            {
+                long content_length = http::HttpRequestParser::is_content_length_header(std::vector<char>(header.first.begin(), header.first.end()));
+                if (content_length != -1)
                 {
-                    request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + pos + 2);
-                    buffer.erase(buffer.begin(), buffer.begin() + pos + 2);
-                    found_end_of_request_line = true;
+                    if (body_size != -1)
+                        throw http::exceptions::MultipleContentLengthHeaders{};
+                    body_size = content_length;
+                    current_request_status = request_status::READING_BODY;
                     break;
                 }
-
-                if (pos >= http::constants::MAX_REQUEST_LINE)
+                if (http::HttpRequestParser::is_transfer_encoding_chunked_header(std::vector<char>(header.first.begin(), header.first.end())))
                 {
-                    throw http::exceptions::RequestLineTooLong();
+                    has_chunked_body = true;
+                    current_request_status = request_status::READING_BODY;
+                    break;
                 }
             }
-            if (found_end_of_request_line)
-                break;
-            read_from_client();
+            if (body_size != -1 && has_chunked_body)
+            {
+                throw http::exceptions::BothContentLengthAndChunked{};
+            }
+            if (body_size == -1 && !has_chunked_body)
+            {
+                current_request_status = request_status::REQUEST_READING_DONE;
+            }
         }
-
-        if (!http::HttpRequestParser::validate_request_line(request_data))
+        if (current_request_status == request_status::READING_BODY)
         {
-            throw http::exceptions::InvalidRequestLine();
+            if (has_chunked_body)
+            {
+                read_body();
+            }
+            else
+            {
+                read_body(body_size);
+            }
         }
+        if (current_request_status == request_status::REQUEST_READING_DONE)
+        {
+            current_request.body = http::HttpRequestParser::parse_body(buffer, parser_cursor, current_request.headers);
+        }
+    }
+    catch (const http::exceptions::UnexpectedEndOfStream &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        return;
+    }
+    catch (const http::exceptions::InvalidRequestLine &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        return;
+    }
+    catch (const http::exceptions::InvalidChunkedEncoding &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        return;
+    }
+    catch (const http::exceptions::InvalidContentLength &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        return;
+    }
+    catch (const http::exceptions::MultipleContentLengthHeaders &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        return;
+    }
+    catch (const http::exceptions::BothContentLengthAndChunked &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        return;
+    }
+    catch (const http::exceptions::TransferEncodingWithoutChunked &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        return;
+    }
+    catch (const http::exceptions::RequestLineTooLong &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::URI_TOO_LONG, "Invalid Request Line");
+        return;
+    }
+    catch (const http::exceptions::HeadersTooLarge &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large");
+        return;
+    }
+    catch (const http::exceptions::BodyTooLarge &e)
+    {
+        std::cerr << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::PAYLOAD_TOO_LARGE, "Payload Too Large");
+        return;
+    }
+    catch (std::exception &e)
+    {
+        std::cerr << "Unknown error reading request: " << e.what() << std::endl;
+        current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+        return;
+    }
+    catch (...)
+    {
+        std::cerr << "Unknown error reading request." << std::endl;
+        current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+        return;
+    }
+}
 
-        // Read the headers
-        long header_start = request_data.size();
+void http::HttpConnection::read_request_line()
+{
+    try
+    {
+        long pos = buffer_cursor;
+        bool found_end_of_request_line{false};
+        for (; pos < (long)buffer.size() - 1; pos++)
+        {
+            if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
+            {
+                found_end_of_request_line = true;
+                buffer_cursor = pos + 2;
+                break;
+            }
+
+            if (pos >= http::constants::MAX_REQUEST_LINE)
+            {
+                throw http::exceptions::RequestLineTooLong();
+            }
+        }
+        if (found_end_of_request_line)
+            current_request_status = request_status::REQUEST_LINE_DONE;
+    }
+    catch (...)
+    {
+        throw;
+    }
+}
+
+void http::HttpConnection::read_headers()
+{
+    try
+    {
+        long pos = buffer_cursor;
+        bool found_end_of_headers{false};
+        static long last_header_end = 0;
+        static long header_start = buffer_cursor;
+        for (; pos < (long)buffer.size() - 1; pos++)
+        {
+
+            if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
+            {
+                if (pos == last_header_end + 1)
+                {
+                    found_end_of_headers = true;
+                    buffer_cursor = pos + 2;
+                    break;
+                }
+                pos += 1;
+                last_header_end = pos;
+            }
+
+            if ((long)(pos - header_start) >= http::constants::MAX_HEADER_SIZE)
+            {
+                throw http::exceptions::HeadersTooLarge();
+            }
+        }
+        if (found_end_of_headers)
+            current_request_status = request_status::HEADERS_DONE;
+    }
+    catch (...)
+    {
+        throw;
+    }
+}
+
+void http::HttpConnection::read_body(long content_length)
+{
+    try
+    {
+        if ((long)buffer.size() - buffer_cursor >= content_length)
+        {
+            buffer_cursor += content_length;
+            current_request_status = request_status::REQUEST_READING_DONE;
+        }
+    }
+    catch (...)
+    {
+        throw;
+    }
+}
+
+void http::HttpConnection::read_body() // For chunked transfer encoding
+{
+    try
+    {
+        long pos = buffer_cursor;
         while (true)
         {
-            long pos{0};
-            bool found_end_of_headers{false};
+            bool found_end_of_chunk_size_line{false};
             for (; pos < (long)buffer.size() - 1; pos++)
             {
-
                 if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
                 {
-                    long content_length_from_header = http::HttpRequestParser::is_content_length_header(std::vector<char>(buffer.begin(), buffer.begin() + pos));
-                    if (content_length != -1 && content_length_from_header != -1)
-                    {
-                        throw http::exceptions::MultipleContentLengthHeaders();
-                    }
-                    if (content_length_from_header != -1)
-                    {
-                        content_length = content_length_from_header;
-                        request_has_body = true;
-                    }
-                    if (http::HttpRequestParser::is_transfer_encoding_chunked_header(std::vector<char>(buffer.begin(), buffer.begin() + pos)))
-                    {
-                        has_chunked_transfer_encoding = true;
-                        request_has_body = true;
-                    }
-                    request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + pos + 2);
-                    buffer.erase(buffer.begin(), buffer.begin() + pos + 2);
-                    if (pos == 0) // Empty line found, end of headers
-                    {
-                        found_end_of_headers = true;
-                        break;
-                    }
-                    pos = -1; // Reset pos for next header line
-                }
-
-                if ((long)request_data.size() - header_start >= http::constants::MAX_HEADER_SIZE)
-                {
-                    throw http::exceptions::HeadersTooLarge();
+                    found_end_of_chunk_size_line = true;
+                    break;
                 }
             }
-            if (found_end_of_headers)
-                break;
-            read_from_client();
+            if (!found_end_of_chunk_size_line)
+                return;
+
+            std::string chunk_size_str(buffer.begin() + buffer_cursor, buffer.begin() + pos);
+            size_t chunk_size = std::stoul(chunk_size_str, nullptr, 16);
+            pos += 2;
+
+            if ((long)buffer.size() - pos < (long)(chunk_size + 2))
+                return;
+
+            pos += chunk_size + 2;
+
+            if (chunk_size == 0)
+            {
+                buffer_cursor = pos;
+                current_request_status = request_status::REQUEST_READING_DONE;
+                return;
+            }
+            buffer_cursor = pos;
         }
-
-        // Read the body if present
-        if (request_has_body)
-        {
-            if (has_chunked_transfer_encoding && content_length != -1)
-            {
-                throw http::exceptions::BothContentLengthAndChunked();
-            }
-
-            if (content_length != -1)
-            {
-                if (content_length > http::constants::MAX_BODY_SIZE)
-                {
-                    throw http::exceptions::BodyTooLarge();
-                }
-                size_t remaining = content_length;
-                while (remaining > 0)
-                {
-                    size_t to_read = std::min(remaining, buffer.size());
-                    request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + to_read);
-                    buffer.erase(buffer.begin(), buffer.begin() + to_read);
-                    remaining -= to_read;
-
-                    if (remaining == 0)
-                        break;
-
-                    read_from_client();
-                }
-            }
-            else if (has_chunked_transfer_encoding)
-            {
-                while (true)
-                {
-                    // Read chunk size line
-                    std::vector<char> chunk_size_line;
-                    while (true)
-                    {
-                        long pos{0};
-                        bool found_end_of_chunk_size_line{false};
-                        for (; pos < (long)buffer.size() - 1; pos++)
-                        {
-                            if (buffer[pos] == '\r' && buffer[pos + 1] == '\n') // End of chunk size line found
-                            {
-                                chunk_size_line.insert(chunk_size_line.end(), buffer.begin(), buffer.begin() + pos + 2);
-                                buffer.erase(buffer.begin(), buffer.begin() + pos + 2);
-                                found_end_of_chunk_size_line = true;
-                                break;
-                            }
-                        }
-                        if (found_end_of_chunk_size_line)
-                            break;
-                        read_from_client();
-                    }
-                    request_data.insert(request_data.end(), chunk_size_line.begin(), chunk_size_line.end());
-
-                    std::string chunk_size_str(chunk_size_line.begin(), chunk_size_line.end());
-                    size_t chunk_size = std::stoul(chunk_size_str, nullptr, 16);
-
-                    // Read the chunk data plus the trailing CRLF
-                    size_t remaining = chunk_size + 2; // +2 for CRLF
-                    while (remaining > 0)
-                    {
-                        size_t to_read = std::min(remaining, buffer.size());
-                        request_data.insert(request_data.end(), buffer.begin(), buffer.begin() + to_read);
-                        buffer.erase(buffer.begin(), buffer.begin() + to_read);
-                        remaining -= to_read;
-                        if (remaining == 0)
-                            break;
-                        read_from_client();
-                    }
-                    if (chunk_size == 0)
-                    {
-                        break; // Last chunk
-                    }
-                }
-            }
-        }
-        return request_data;
     }
     catch (...)
     {
@@ -390,15 +504,17 @@ void http::HttpConnection::read_from_client()
     try
     {
         std::vector<char> temp_buffer;
-        temp_buffer = client_socket.receive_data(http::constants::SINGLE_READ_SIZE);
+        temp_buffer = client_socket.receive_data();
         buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
     }
     catch (const tcp::exceptions::CanNotReceiveData &e)
     {
+        current_request_status = request_status::CLIENT_ERROR;
         throw http::exceptions::UnexpectedEndOfStream(std::string(e.what()));
     }
     catch (...)
     {
+        current_request_status = request_status::CLIENT_ERROR;
         throw http::exceptions::UnexpectedEndOfStream();
     }
 }
