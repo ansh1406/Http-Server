@@ -259,6 +259,10 @@ void http::HttpConnection::read_request()
                 current_request.method = req_line.method;
                 current_request.uri = req_line.uri;
                 current_request.version = req_line.version;
+                if(current_request.version != http::versions::HTTP_1_1)
+                {
+                    throw http::exceptions::VersionNotSupported{};
+                }
                 current_request_status = request_status::READING_HEADERS;
             }
         }
@@ -366,10 +370,10 @@ void http::HttpConnection::read_request()
         current_response = http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large");
         return;
     }
-    catch (const http::exceptions::BodyTooLarge &e)
+    catch (const http::exceptions::VersionNotSupported &e)
     {
         log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::PAYLOAD_TOO_LARGE, "Payload Too Large");
+        current_response = http::HttpResponse(http::status_codes::HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
         return;
     }
     catch (std::exception &e)

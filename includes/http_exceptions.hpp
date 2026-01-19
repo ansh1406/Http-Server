@@ -79,11 +79,11 @@ namespace http
                 : std::runtime_error("HTTP: Invalid chunked encoding" + (message.empty() ? "" : "\n" + message)) {}
         };
 
-        class BodyTooLarge : public std::runtime_error
+        class VersionNotSupported : public std::runtime_error
         {
         public:
-            BodyTooLarge(const std::string& message = "")
-                : std::runtime_error("HTTP: Payload too large" + (message.empty() ? "" : "\n" + message)) {}
+            VersionNotSupported(const std::string& message = "")
+                : std::runtime_error("HTTP: HTTP version not supported" + (message.empty() ? "" : "\n" + message)) {}
         };
     }
 }
