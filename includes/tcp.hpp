@@ -22,7 +22,7 @@ namespace tcp
         const int SOCKET_ERROR = -1;
         const in_addr_t DEFAULT_ADDRESS = INADDR_ANY;
         const int BACKLOG = 10;
-        const ssize_t MAX_BUFFER_SIZE = 4096;
+        const size_t BUFFER_EXPANTION_SIZE = 4096;
         const int OPTION_TRUE = 1;
     }
 
@@ -129,8 +129,8 @@ namespace tcp
         {
             return socket_fd.fd();
         }
-        void send_data(const std::vector<char> &data);
-        std::vector<char> receive_data(const size_t max_size = constants::MAX_BUFFER_SIZE);
+        size_t send_data(const std::vector<char> &data , size_t start_pos);
+        std::vector<char> receive_data();
 
         /// @return IP address of the connected peer as a string
         std::string get_ip() const
@@ -174,7 +174,7 @@ namespace tcp
         }
         /// @brief Accepts an incoming connection and returns a ConnectionSocket object
         /// @return ConnectionSocket representing the accepted connection
-        ConnectionSocket accept_connection(const time_t timeout_ms = 30000);
+        std::vector<ConnectionSocket> accept_connections();
 
         /// @return IP address the socket is bound to as a string
         std::string get_ip() const

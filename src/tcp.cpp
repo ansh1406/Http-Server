@@ -138,12 +138,11 @@ std::vector<tcp::ConnectionSocket> tcp::ListeningSocket::accept_connections()
     }
 }
 
-void tcp::ConnectionSocket::send_data(const std::vector<char> &data)
+size_t tcp::ConnectionSocket::send_data(const std::vector<char> &data, size_t start_pos)
 {
     ssize_t total_sent = 0;
-    ssize_t data_length = data.size();
-    const char *data_ptr = data.data();
-
+    ssize_t data_length = data.size() - start_pos;
+    const char *data_ptr = data.data() + start_pos;
     try
     {
         while (total_sent < data_length)
@@ -152,10 +151,15 @@ void tcp::ConnectionSocket::send_data(const std::vector<char> &data)
             if (bytes_sent < 0)
             {
                 int err = errno;
+                if (err == EAGAIN || err == EWOULDBLOCK)
+                {
+                    break;
+                }
                 throw tcp::exceptions::CanNotSendData{std::string(strerror(err))};
             }
             total_sent += bytes_sent;
         }
+        return total_sent;
     }
     catch (const std::exception &e)
     {
@@ -167,18 +171,39 @@ void tcp::ConnectionSocket::send_data(const std::vector<char> &data)
     }
 }
 
-std::vector<char> tcp::ConnectionSocket::receive_data(const size_t max_size)
+std::vector<char> tcp::ConnectionSocket::receive_data()
 {
-    std::vector<char> buffer(max_size);
     try
     {
-        ssize_t bytes_received = recv(socket_fd.fd(), buffer.data(), max_size, 0);
-        if (bytes_received <= 0)
+        std::vector<char> buffer;
+        size_t total_received = 0;
+        while (true)
         {
-            int err = errno;
-            throw tcp::exceptions::CanNotReceiveData{std::string(strerror(err))};
+            int remaining_space = buffer.size() - total_received;
+            if (remaining_space < constants::BUFFER_EXPANTION_SIZE)
+            {
+                buffer.resize(buffer.size() + constants::BUFFER_EXPANTION_SIZE);
+                remaining_space = buffer.size() - total_received;
+            }
+            long bytes_received = recv(socket_fd.fd(), buffer.data() + total_received, remaining_space, 0);
+            if(bytes_received == 0){
+                throw tcp::exceptions::CanNotReceiveData{"Connection closed by peer."};
+            }
+            if (bytes_received < 0)
+            {
+                int err = errno;
+                if (err == EAGAIN || err == EWOULDBLOCK)
+                {
+                    break;
+                }
+                else
+                {
+                    throw tcp::exceptions::CanNotReceiveData{std::string(strerror(err))};
+                }
+            }
+            total_received += bytes_received;
         }
-        buffer.resize(bytes_received);
+        buffer.resize(total_received);
         return buffer;
     }
     catch (const std::exception &e)
