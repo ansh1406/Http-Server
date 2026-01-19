@@ -3,10 +3,12 @@
 This project provides a simple, robust, and extensible HTTP/1.1 server library written in C++. It is designed for ease of use, allowing you to quickly create HTTP servers, define custom route handlers, and manage HTTP requests and responses with a clean API.
 
 ## Features
+
 - **HTTP/1.1 server**: Listens for incoming HTTP connections and serves requests over TCP.
 - **Route handling**: Register custom handlers for specific HTTP methods and URL paths.
 
 ## Directory Structure
+
 - `includes/`: Public headers for the HTTP server, request, response, parser, and TCP layer.
 - `src/`: Implementation files for the HTTP server and TCP networking.
 - `build/`: Output directory for compiled library and copied headers.
@@ -15,6 +17,7 @@ This project provides a simple, robust, and extensible HTTP/1.1 server library w
 ## Build Instructions
 
 **Requirements:**
+
 - Linux or WSL (for bash and POSIX sockets)
 - g++ (C++11 or later)
 - bash
@@ -41,7 +44,7 @@ int main()
 {
     try
     {
-        http::HttpServerConfig config{port: 8080, max_pending_connections: 10};
+        http::HttpServerConfig config{port: 8080, max_pending_connections: 100 ,max_concurrent_connections:100 ,external_logging:false};
         http::HttpServer server(config);
 
         server.add_route_handler("GET", "/hello", [](const http::HttpRequest &req, http::HttpResponse &res) {
@@ -83,17 +86,18 @@ Run your server:
 ## API Overview
 
 ### Main Classes
+
 - **`http::HttpServer`**: Manages the server lifecycle, route registration, and request handling.
-	- `HttpServer(unsigned short port)`: Create a server listening on the given port.
-	- `void start()`: Start accepting connections and handling requests.
-	- `void add_route_handler(const std::string &method, const std::string &path, std::function<void(const HttpRequest&, HttpResponse&)> handler)`: Register a handler for a method/path.
+  - `HttpServer(unsigned short port)`: Create a server listening on the given port.
+  - `void start()`: Start accepting connections and handling requests.
+  - `void add_route_handler(const std::string &method, const std::string &path, std::function<void(const HttpRequest&, HttpResponse&)> handler)`: Register a handler for a method/path.
 - **`http::HttpRequest`**: Represents an HTTP request.
-	- `const std::string &method() const`
-	- `const std::string &uri() const`
-	- `const std::map<std::string, std::string> &headers() const`
-	- `const std::vector<char> &body() const`
+  - `const std::string &method() const`
+  - `const std::string &uri() const`
+  - `const std::map<std::string, std::string> &headers() const`
+  - `const std::vector<char> &body() const`
 - **`http::HttpResponse`**: Represents an HTTP response.
-	- `void set_status_code(int)`
-	- `void set_status_message(const std::string &)`
-	- `void add_header(const std::string &, const std::string &)`
-	- `void set_body(const std::vector<char> &)`
+  - `void set_status_code(int)`
+  - `void set_status_message(const std::string &)`
+  - `void add_header(const std::string &, const std::string &)`
+  - `void set_body(const std::vector<char> &)`

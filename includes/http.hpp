@@ -89,7 +89,7 @@ int main()
 {
     try
     {
-        http::HttpServerConfig config{port: 8080, max_pending_connections: 10};
+        http::HttpServerConfig config{port: 8080, max_pending_connections: 100 ,max_concurrent_connections:100 ,external_logging:false};
         http::HttpServer server(config);
 
         server.add_route_handler("GET", "/hello", [](const http::HttpRequest &req, http::HttpResponse &res) {
