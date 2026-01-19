@@ -53,7 +53,9 @@ namespace http
         void read_headers();
         void read_body(long content_length);
         void read_body(); // For chunked transfer encoding
-
+        void log_info(const std::string &message);
+        void log_warning(const std::string &message);
+        void log_error(const std::string &message);
     public:
 
         /// @brief Construct a new Http Connection object

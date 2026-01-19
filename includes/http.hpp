@@ -30,6 +30,7 @@ namespace http
         unsigned int max_pending_connections;
         unsigned int max_concurrent_connections;
         time_t inactive_connection_timeout;
+        bool external_logging;
     };
     class HttpConnection;
 
@@ -47,6 +48,9 @@ namespace http
         std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> route_handlers;
         std::string get_ip();
         unsigned short get_port();
+        void log_info(const std::string &message);
+        void log_warning(const std::string &message);
+        void log_error(const std::string &message);
 
     public:
         /// @brief Opens an HTTP/1.1 on the specified port. Over TCP.
