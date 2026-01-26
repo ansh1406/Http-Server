@@ -9,6 +9,14 @@
 #include "includes/event_manager.hpp"
 #include "includes/logger.hpp"
 
+namespace http{
+    namespace sizes
+    {
+        const size_t MAX_REQUEST_LINE_SIZE = 8192; // 8 KB
+        const size_t MAX_HEADER_SIZE = 8192;       // 8 KB
+    }
+}
+
 struct http::HttpServer::Impl
 {
     tcp::ListeningSocket server_socket;
@@ -259,7 +267,7 @@ void http::HttpConnection::read_request()
                 current_request.method = req_line.method;
                 current_request.uri = req_line.uri;
                 current_request.version = req_line.version;
-                if(current_request.version != http::versions::HTTP_1_1)
+                if (current_request.version != http::versions::HTTP_1_1)
                 {
                     throw http::exceptions::VersionNotSupported{};
                 }
@@ -405,7 +413,7 @@ void http::HttpConnection::read_request_line()
                 break;
             }
 
-            if (pos >= 8192) // 8 KB
+            if (pos >= http::sizes::MAX_REQUEST_LINE_SIZE)
             {
                 throw http::exceptions::RequestLineTooLong();
             }
@@ -442,7 +450,7 @@ void http::HttpConnection::read_headers()
                 last_header_end = pos;
             }
 
-            if ((long)(pos - header_start) >= 8192) // 8 KB
+            if ((pos - header_start) >= http::sizes::MAX_HEADER_SIZE)
             {
                 throw http::exceptions::HeadersTooLarge();
             }
