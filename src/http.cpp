@@ -9,7 +9,8 @@
 #include "includes/event_manager.hpp"
 #include "includes/logger.hpp"
 
-namespace http{
+namespace http
+{
     namespace sizes
     {
         const size_t MAX_REQUEST_LINE_SIZE = 8192; // 8 KB
