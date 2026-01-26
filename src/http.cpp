@@ -31,7 +31,16 @@ http::HttpServer::HttpServer(HttpServerConfig _config) : config(_config)
     {
         Logger::get_instance();
         if (config.external_logging)
-            Logger::set_external_logging("server.log");
+        {
+            try
+            {
+                Logger::set_external_logging("server.log");
+            }
+            catch (...)
+            {
+                log_error("Failed to set external logging. Reverting to console logging.");
+            }
+        }
         pimpl = new Impl(std::move(tcp::ListeningSocket(config.port, config.max_pending_connections)), std::move(tcp::EventManager(config.max_concurrent_connections + 1, -1)));
         log_info("Server created on port:" + std::to_string(config.port));
     }

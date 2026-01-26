@@ -30,12 +30,12 @@ public:
     static void set_external_logging(const std::string &filename)
     {
         Logger &logger = get_instance();
-        logger.external_log = true;
         logger.log_file.open(filename, std::ios::app);
         if (!logger.log_file.is_open())
         {
-            throw std::runtime_error("Failed to open log file: " + filename);
+            throw std::runtime_error("Unable to open log file: " + filename);
         }
+        logger.external_log = true;
     }
 
     void log(const std::string &message, LogLevel level)
