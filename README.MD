@@ -1,103 +1,128 @@
-# Simple C++ HTTP Server Library
+# Http-Server (C++ HTTP library)
 
-This project provides a simple, robust, and extensible HTTP/1.1 server library written in C++. It is designed for ease of use, allowing you to quickly create HTTP servers, define custom route handlers, and manage HTTP requests and responses with a clean API.
+**Stable, minimal, low-level HTTP server library (shared object + header-only API surface).**
 
-## Features
+This project provides a compact C++ HTTP/1.1 server library intended for low-level system usage. The library exposes a small runtime in `http.so` and three public headers that present the API surface to consumers:
 
-- **HTTP/1.1 server**: Listens for incoming HTTP connections and serves requests over TCP.
-- **Route handling**: Register custom handlers for specific HTTP methods and URL paths.
+- [includes/http.hpp](includes/http.hpp)
+- [includes/http_request.hpp](includes/http_request.hpp)
+- [includes/http_response.hpp](includes/http_response.hpp)
+- [includes/http_constants.hpp](includes/http_constants.hpp)
 
-## Directory Structure
+The implementation lives in `src/` and the build helper `build.sh` produces `build/http.so` and copies the public headers into `build/` for distribution.
 
-- `includes/`: Public headers for the HTTP server, request, response, parser, and TCP layer.
-- `src/`: Implementation files for the HTTP server and TCP networking.
-- `build/`: Output directory for compiled library and copied headers.
-- `build.sh`: Bash script to build the shared library and copy headers.
+**Intended use**
+- Embed a lightweight HTTP server into system services, daemons, or test harnesses.
+- Designed for single-process, non-opinionated routing: user code provides route handlers.
+- Minimal external dependencies; built with g++ and standard library only.
 
-## Build Instructions
+**Highlights**
+- Small, explicit API surface for low-level integration.
+- Exposes `HttpServer` runtime via shared object and headers for compile-time types.
+- Simple route handler registration based on method+path.
 
-**Requirements:**
+**Public API (summary)**
 
-- Linux or WSL (for bash and POSIX sockets)
-- g++ (C++11 or later)
-- bash
+- `http::HttpRequest` (in [includes/http_request.hpp](includes/http_request.hpp))
+  - Public members: `method`, `uri`, `version`, `headers`, `body`.
+  - Represents a parsed incoming HTTP request.
 
-**To build the library:**
+- `http::HttpResponse` (in [includes/http_response.hpp](includes/http_response.hpp))
+  - Methods: `version()`, `status_code()`, `status_message()`, `headers()`, `body()` (const accessors).
+  - Mutators: `set_status_code(int)`, `set_status_message(string)`, `set_body(vector<char>)`, `add_header(string,string)`.
+  - Constructible with just status code / message or with full headers/body.
 
-```sh
-./build.sh
-```
+- `http::HttpServer` (in [includes/http.hpp](includes/http.hpp))
+  - Construct with `http::HttpServerConfig`:
+    - `port` (unsigned short)
+    - `max_pending_connections` (unsigned int)
+    - `max_concurrent_connections` (unsigned int)
+    - `inactive_connection_timeout` (time_t)
+    - `external_logging` (bool)
+  - Methods:
+    - `start()` — begin listening and serving.
+    - `add_route_handler(method, path, handler)` — register a route handler where `handler` is `std::function<void(const http::HttpRequest&, http::HttpResponse&)>`.
+  - Exception: `http::exceptions::CanNotCreateServer` thrown on creation failure.
 
-This will compile the source files and produce `build/http.so` (a shared library), and copy the main headers to the `build/` directory.
+See the header files for full signatures and inline documentation.
 
-## Example Usage
-
-Below is a minimal example of how to use this library to create a simple HTTP server that responds to `GET /hello`:
+Quick example (consumer code)
 
 ```cpp
 #include "http.hpp"
 #include <iostream>
-#include <string>
-#include <vector>
 
-int main()
-{
-    try
-    {
-        http::HttpServerConfig config{port: 8080, max_pending_connections: 100 ,max_concurrent_connections:100 ,external_logging:false};
-        http::HttpServer server(config);
+int main() {
+    http::HttpServerConfig cfg{8080, 100, 100, 60, false};
+    http::HttpServer server(cfg);
 
-        server.add_route_handler("GET", "/hello", [](const http::HttpRequest &req, http::HttpResponse &res) {
-            res.set_status_code(200);
-            res.set_status_message("OK");
-            res.add_header("Content-Type", "text/plain");
-            std::string body = "Hello, World!";
-            res.set_body(std::vector<char>(body.begin(), body.end()));
-        });
+    server.add_route_handler("GET", "/hello", [](const http::HttpRequest &req, http::HttpResponse &res){
+        res.set_status_code(200);
+        res.set_status_message("OK");
+        res.add_header("Content-Type", "text/plain");
+        std::string body = "Hello, World!";
+        res.set_body(std::vector<char>(body.begin(), body.end()));
+    });
 
-        server.start();
-    }
-    catch (const http::exceptions::CanNotCreateServer &e)
-    {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
-    }
-    catch(...)
-    {
-        std::cerr << "An unexpected error occurred." << std::endl;
-        return 1;
-    }
+    server.start();
     return 0;
 }
 ```
 
-Compile your program with:
+Building the library
 
-```sh
-g++ -Ipath_to_http.hpp your_program.cpp http.so -o your_program
+A convenience script is included: `build.sh`.
+
+From the project root:
+
+```bash
+./build.sh
 ```
 
-Run your server:
+`build.sh` will compile the sources into `build/http.so` and copy the public headers into `build/`.
 
-```sh
-./your_program
+Manual build (equivalent)
+
+```bash
+mkdir -p build
+g++ -shared -fPIC -I. src/*.cpp -o build/http.so -O2 -std=c++11
+cp includes/http.hpp includes/http_request.hpp includes/http_response.hpp includes/http_constants.hpp build/
 ```
 
-## API Overview
+Linking against the shared object
 
-### Main Classes
+Two common options:
 
-- **`http::HttpServer`**: Manages the server lifecycle, route registration, and request handling.
-  - `HttpServer(unsigned short port)`: Create a server listening on the given port.
-  - `void start()`: Start accepting connections and handling requests.
-  - `void add_route_handler(const std::string &method, const std::string &path, std::function<void(const HttpRequest&, HttpResponse&)> handler)`: Register a handler for a method/path.
-- **`http::HttpRequest`**: Represents an HTTP request.
-  - `const std::string &method() const`
-  - `const std::string &uri() const`
-  - `const std::map<std::string, std::string> &headers() const`
-  - `const std::vector<char> &body() const`
-- **`http::HttpResponse`**: Represents an HTTP response.
-  - `void set_status_code(int)`
-  - `void set_status_message(const std::string &)`
-  - `void add_header(const std::string &, const std::string &)`
-  - `void set_body(const std::vector<char> &)`
+- Rename the produced file to follow the platform convention and link normally:
+
+```bash
+mv build/http.so build/libhttp.so
+g++ -Ibuild -Lbuild -lhttp -Wl,-rpath,$PWD/build my_app.cpp -o my_app
+```
+
+- Keep the name `http.so` and link with the linker `-l:` syntax:
+
+```bash
+g++ -Ibuild -Lbuild -l:http.so -Wl,-rpath,$PWD/build my_app.cpp -o my_app
+```
+
+Or link by absolute path at link time:
+
+```bash
+g++ -Ibuild my_app.cpp build/http.so -o my_app
+```
+
+Run-time loader notes
+
+- To run an executable that depends on `build/http.so`, either install it to a system library path (`/usr/local/lib`) or set `LD_LIBRARY_PATH`:
+
+```bash
+export LD_LIBRARY_PATH=$PWD/build:$LD_LIBRARY_PATH
+./my_app
+```
+
+API usage notes
+
+- Route handlers are synchronous callbacks invoked by the server runtime. Handlers should be fast and non-blocking where possible.
+- The server does not provide high-level routing features (e.g., parameterized routes or middleware). Implement in your consumer code.
+- `HttpResponse` body uses `std::vector<char>`; convert from/to `std::string` as needed.

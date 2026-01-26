@@ -37,8 +37,7 @@ namespace http
     class HttpServer
     {
     private:
-        /// @brief Pointer to incomplete implementation to abstract away tcp layer details.
-        /// @param server_socket Holds the tcp::ListeningSocket.
+        /// @brief Pointer to incomplete implementation to abstract away underlying details.
         struct Impl;
         /// @brief Pointer to the implementation.
         Impl *pimpl;
@@ -89,7 +88,7 @@ int main()
 {
     try
     {
-        http::HttpServerConfig config{port: 8080, max_pending_connections: 100 ,max_concurrent_connections:100 ,external_logging:false};
+        http::HttpServerConfig config{port: 8080, max_pending_connections: 100 ,max_concurrent_connections:100 ,external_logging:false, inactive_connection_timeout: 60};
         http::HttpServer server(config);
 
         server.add_route_handler("GET", "/hello", [](const http::HttpRequest &req, http::HttpResponse &res) {
