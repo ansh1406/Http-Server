@@ -62,6 +62,7 @@ void http::HttpServer::start()
     {
         log_info("Serfer listening on port: " + std::to_string(get_port()));
         int server_id = pimpl->event_manager.register_socket(pimpl->server_socket.fd());
+        time_t last_timeout_check = time(nullptr);
         while (true)
         {
             try
@@ -115,6 +116,20 @@ void http::HttpServer::start()
                     {
                         pimpl->event_manager.remove_socket(conn_id);
                         connections.erase(conn_id);
+                    }
+                }
+                if (time(nullptr) - last_timeout_check >= 5)
+                {
+                    last_timeout_check = time(nullptr);
+                    for (auto &it : connections)
+                    {
+                        auto &conn = it.second;
+                        if (conn.idle_time() > config.inactive_connection_timeout)
+                        {
+                            log_info("Connection timed out: " + conn.get_ip() + ":" + std::to_string(conn.get_port()));
+                            pimpl->event_manager.remove_socket(it.first);
+                            connections.erase(it.first);
+                        }
                     }
                 }
             }

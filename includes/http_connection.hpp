@@ -7,6 +7,7 @@
 #include <map>
 #include <vector>
 #include <functional>
+#include <ctime>
 
 namespace http
 {
@@ -56,12 +57,15 @@ namespace http
         void log_info(const std::string &message);
         void log_warning(const std::string &message);
         void log_error(const std::string &message);
-    public:
 
+    public:
         /// @brief Construct a new Http Connection object
         /// @param socket The TCP connection socket associated with this HTTP connection
         explicit HttpConnection(tcp::ConnectionSocket &&socket)
-            : client_socket(std::move(socket)) {}
+            : client_socket(std::move(socket))
+        {
+            last_activity_time = time(nullptr);
+        }
 
         HttpConnection(const HttpConnection &) = delete;
         HttpConnection &operator=(const HttpConnection &) = delete;
@@ -74,12 +78,13 @@ namespace http
         /// @param route_handlers map of (method, path) pairs to their corresponding handler functions (callbacks)
         void handle_request(std::map<std::pair<std::string, std::string>,
                                      std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers) noexcept;
-        
+
         void send_response();
 
         void set_peer_idle()
         {
             peer_status = connection_status::IDLE;
+            last_activity_time = time(nullptr);
         }
 
         void set_peer_reading()
@@ -105,6 +110,11 @@ namespace http
         const int status() const
         {
             return current_request_status;
+        }
+
+        const time_t idle_time() const
+        {
+            return time(nullptr) - last_activity_time;
         }
 
         /// @return IP address of the connected client
