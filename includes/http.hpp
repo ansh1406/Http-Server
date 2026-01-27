@@ -54,6 +54,8 @@ namespace http
         void log_info(const std::string &message);
         void log_warning(const std::string &message);
         void log_error(const std::string &message);
+        void check_and_remove_inactive_connections();
+        void accept_new_connections();
 
     public:
         /// @brief Opens an HTTP/1.1 on the specified port. Over TCP.

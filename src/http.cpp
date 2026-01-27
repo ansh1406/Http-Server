@@ -72,26 +72,19 @@ void http::HttpServer::start()
     {
         log_info("Serfer listening on port: " + std::to_string(get_port()));
         int server_id = pimpl->event_manager.register_socket(pimpl->server_socket.fd());
-        time_t last_timeout_check = time(nullptr);
         while (true)
         {
             try
             {
-                std::vector<int> events = pimpl->event_manager.wait_for_events();
+                std::vector<int> active_connections = pimpl->event_manager.wait_for_events();
 
                 if (pimpl->event_manager.is_readable(server_id))
                 {
-                    std::vector<tcp::ConnectionSocket> new_connections = pimpl->server_socket.accept_connections();
-                    for (auto &conn : new_connections)
-                    {
-                        int conn_id = pimpl->event_manager.register_socket(conn.fd());
-                        connections.insert({conn_id, http::HttpConnection(std::move(conn))});
-                        log_info("Connection accepted: " + connections.at(conn_id).get_ip() + ":" + std::to_string(connections.at(conn_id).get_port()));
-                    }
+                    accept_new_connections();
                     pimpl->event_manager.clear_status(server_id);
                 }
 
-                for (auto conn_id : events)
+                for (auto conn_id : active_connections)
                 {
                     if (conn_id == server_id)
                         continue;
@@ -106,7 +99,7 @@ void http::HttpServer::start()
                     }
                 }
 
-                for (auto conn_id : events)
+                for (auto conn_id : active_connections)
                 {
                     if (conn_id == server_id)
                         continue;
@@ -128,20 +121,7 @@ void http::HttpServer::start()
                         connections.erase(conn_id);
                     }
                 }
-                if (time(nullptr) - last_timeout_check >= 5)
-                {
-                    last_timeout_check = time(nullptr);
-                    for (auto &it : connections)
-                    {
-                        auto &conn = it.second;
-                        if (conn.idle_time() > config.inactive_connection_timeout)
-                        {
-                            log_info("Connection timed out: " + conn.get_ip() + ":" + std::to_string(conn.get_port()));
-                            pimpl->event_manager.remove_socket(it.first);
-                            connections.erase(it.first);
-                        }
-                    }
-                }
+                check_and_remove_inactive_connections();
             }
             catch (const std::exception &e)
             {
@@ -162,6 +142,36 @@ void http::HttpServer::start()
     {
         log_error("Unknown fatal error starting server.");
         throw;
+    }
+}
+
+void http::HttpServer::check_and_remove_inactive_connections()
+{
+    static time_t last_timeout_check = 0;
+    if (time(nullptr) - last_timeout_check >= 5)
+    {
+        last_timeout_check = time(nullptr);
+        for (auto &it : connections)
+        {
+            auto &conn = it.second;
+            if (conn.idle_time() > config.inactive_connection_timeout)
+            {
+                log_info("Connection timed out: " + conn.get_ip() + ":" + std::to_string(conn.get_port()));
+                pimpl->event_manager.remove_socket(it.first);
+                connections.erase(it.first);
+            }
+        }
+    }
+}
+
+void http::HttpServer::accept_new_connections()
+{
+    std::vector<tcp::ConnectionSocket> new_connections = pimpl->server_socket.accept_connections();
+    for (auto &conn : new_connections)
+    {
+        int conn_id = pimpl->event_manager.register_socket(conn.fd());
+        connections.insert({conn_id, http::HttpConnection(std::move(conn))});
+        log_info("Connection accepted: " + connections.at(conn_id).get_ip() + ":" + std::to_string(connections.at(conn_id).get_port()));
     }
 }
 
