@@ -7,19 +7,24 @@
 #include <map>
 #include <functional>
 #include <string>
-#include <exception>
+#include <stdexcept>
 
 namespace http
 {
     namespace exceptions
     {
-        class CanNotCreateServer : public std::exception
+        class CanNotCreateServer : public std::runtime_error
         {
         public:
-            const char *what() const noexcept override
-            {
-                return "Unable to create server.";
-            }
+            CanNotCreateServer(const std::string &message = "")
+                : std::runtime_error("HTTP: Unable to create server" + (message.empty() ? "" : "\n" + message)) {}
+        };
+
+        class UnableToAddRouteHandler : public std::runtime_error
+        {
+        public:
+            UnableToAddRouteHandler(const std::string &message = "")
+                : std::runtime_error("HTTP: Unable to add route handler" + (message.empty() ? "" : "\n" + message)) {}
         };
     }
 

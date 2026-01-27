@@ -262,7 +262,20 @@ void http::HttpConnection::send_response()
 
 void http::HttpServer::add_route_handler(const std::string method, const std::string path, std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler)
 {
-    route_handlers[{method, path}] = handler;
+    try
+    {
+        route_handlers[{method, path}] = handler;
+    }
+    catch(const std::exception &e)
+    {
+        log_error(std::string("Error adding route handler for ") + method + " " + path + ": " + e.what());
+        throw http::exceptions::UnableToAddRouteHandler();
+    }
+    catch (...)
+    {
+        log_error(std::string("Unknown error adding route handler for ") + method + " " + path);
+        throw http::exceptions::UnableToAddRouteHandler();
+    }
 }
 
 void http::HttpConnection::read_request()
