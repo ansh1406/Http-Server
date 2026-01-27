@@ -79,7 +79,6 @@ namespace http
         /// @param handler Accepts a callback function that takes an http::HttpRequest and http::HttpResponse as parameters.
         void add_route_handler(const std::string method, const std::string path,
                                const std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler);
-
     };
 }
 #endif // HTTP_HPP
