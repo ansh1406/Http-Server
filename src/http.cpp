@@ -25,12 +25,14 @@ struct http::HttpServer::Impl
     Impl(tcp::ListeningSocket &&sock, tcp::EventManager &&em) : server_socket(std::move(sock)), event_manager(std::move(em)) {}
 };
 
-http::HttpServer::HttpServer(HttpServerConfig _config) : config(_config)
+bool logger__running = false;
+
+void initialize_logger(const bool external_logging)
 {
     try
     {
         Logger::get_instance();
-        if (config.external_logging)
+        if (external_logging)
         {
             try
             {
@@ -38,9 +40,29 @@ http::HttpServer::HttpServer(HttpServerConfig _config) : config(_config)
             }
             catch (...)
             {
-                log_error("Failed to set external logging. Reverting to console logging.");
+                Logger::get_instance().log("Failed to set external logging. Reverting to console logging.", Logger::LogLevel::ERROR);
             }
         }
+    }
+    catch (...)
+    {
+        throw;
+    }
+}
+
+http::HttpServer::HttpServer(HttpServerConfig _config) : config(_config)
+{
+    try
+    {
+        initialize_logger(config.external_logging);
+        logger__running = true;
+    }
+    catch (...)
+    {
+    }
+
+    try
+    {
         pimpl = new Impl(std::move(tcp::ListeningSocket(config.port, config.max_pending_connections)), std::move(tcp::EventManager(config.max_concurrent_connections + 1, -1)));
         log_info("Server created on port:" + std::to_string(config.port));
     }
@@ -52,6 +74,7 @@ http::HttpServer::HttpServer(HttpServerConfig _config) : config(_config)
     catch (const std::exception &e)
     {
         log_error(std::string("Error creating server: ") + e.what());
+        throw http::exceptions::CanNotCreateServer();
     }
     catch (...)
     {
@@ -613,6 +636,8 @@ void http::HttpConnection::log_info(const std::string &message)
 {
     try
     {
+        if (!logger__running)
+            return;
         Logger::get_instance().log(std::string("[CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + message), Logger::LogLevel::INFO);
     }
     catch (...)
@@ -624,6 +649,8 @@ void http::HttpConnection::log_warning(const std::string &message)
 {
     try
     {
+        if (!logger__running)
+            return;
         Logger::get_instance().log(std::string("[CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + message), Logger::LogLevel::WARNING);
     }
     catch (...)
@@ -635,6 +662,8 @@ void http::HttpConnection::log_error(const std::string &message)
 {
     try
     {
+        if (!logger__running)
+            return;
         Logger::get_instance().log(std::string("[CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + message), Logger::LogLevel::ERROR);
     }
     catch (...)
@@ -646,6 +675,8 @@ void http::HttpServer::log_info(const std::string &message)
 {
     try
     {
+        if (!logger__running)
+            return;
         Logger::get_instance().log(std::string("[SERVER] " + message), Logger::LogLevel::INFO);
     }
     catch (...)
@@ -657,6 +688,8 @@ void http::HttpServer::log_warning(const std::string &message)
 {
     try
     {
+        if (!logger__running)
+            return;
         Logger::get_instance().log(std::string("[SERVER] " + message), Logger::LogLevel::WARNING);
     }
     catch (...)
@@ -668,6 +701,8 @@ void http::HttpServer::log_error(const std::string &message)
 {
     try
     {
+        if (!logger__running)
+            return;
         Logger::get_instance().log(std::string("[SERVER] " + message), Logger::LogLevel::ERROR);
     }
     catch (...)

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <ctime>
+#include <stdexcept>
 
 class Logger
 {
@@ -11,6 +12,12 @@ public:
         INFO,
         WARNING,
         ERROR
+    };
+
+    class CanNotInitializeLogger : public std::runtime_error
+    {
+    public:
+        explicit CanNotInitializeLogger() : std::runtime_error("Logger initialization failed") {};
     };
 
     ~Logger()
@@ -23,8 +30,21 @@ public:
 
     static Logger &get_instance()
     {
-        static Logger instance;
-        return instance;
+        try
+        {
+            static Logger instance;
+            return instance;
+        }
+        catch (const std::exception &e)
+        {
+            std::cout << "Logger initialization failed: " << e.what() << std::endl;
+            throw CanNotInitializeLogger();
+        }
+        catch (...)
+        {
+            std::cout << "Logger initialization failed: Unknown error" << std::endl;
+            throw CanNotInitializeLogger();
+        }
     }
 
     static void set_external_logging(const std::string &filename)
@@ -40,31 +60,38 @@ public:
 
     void log(const std::string &message, LogLevel level)
     {
-        std::string level_str;
-        switch (level)
+        try
         {
-        case LogLevel::INFO:
-            level_str = "INFO";
-            break;
-        case LogLevel::WARNING:
-            level_str = "WARNING";
-            break;
-        case LogLevel::ERROR:
-            level_str = "ERROR";
-            break;
-        }
+            std::string level_str;
+            switch (level)
+            {
+            case LogLevel::INFO:
+                level_str = "INFO";
+                break;
+            case LogLevel::WARNING:
+                level_str = "WARNING";
+                break;
+            case LogLevel::ERROR:
+                level_str = "ERROR";
+                break;
+            }
 
-        std::time_t now = std::time(nullptr);
-        char time_buf[20];
-        std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
+            std::time_t now = std::time(nullptr);
+            char time_buf[20];
+            std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
 
-        if (external_log)
-        {
-            log_file << "[" << time_buf << "] [" << level_str << "] " << message << std::endl;
+            if (external_log)
+            {
+                log_file << "[" << time_buf << "] [" << level_str << "] " << message << std::endl;
+            }
+            else
+            {
+                std::cout << "[" << time_buf << "] [" << level_str << "] " << message << std::endl;
+            }
         }
-        else
+        catch (...)
         {
-            std::cout << "[" << time_buf << "] [" << level_str << "] " << message << std::endl;
+            // Suppress all exceptions to avoid logging failures affecting main application flow
         }
     }
 
