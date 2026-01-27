@@ -32,7 +32,7 @@ The implementation lives in `src/` and the build helper `build.sh` produces `bui
   - Mutators: `set_status_code(int)`, `set_status_message(string)`, `set_body(vector<char>)`, `add_header(string,string)`.
   - Constructible with just status code / message or with full headers/body.
 
-- `http::HttpServer` (in [includes/http.hpp](includes/http.hpp))
+  - `http::HttpServer` (in [includes/http.hpp](includes/http.hpp))
   - Construct with `http::HttpServerConfig`:
     - `port` (unsigned short)
     - `max_pending_connections` (unsigned int)
@@ -42,7 +42,10 @@ The implementation lives in `src/` and the build helper `build.sh` produces `bui
   - Methods:
     - `start()` — begin listening and serving.
     - `add_route_handler(method, path, handler)` — register a route handler where `handler` is `std::function<void(const http::HttpRequest&, http::HttpResponse&)>`.
-  - Exception: `http::exceptions::CanNotCreateServer` thrown on creation failure.
+  - Exceptions:
+    - `http::exceptions::CanNotCreateServer` — thrown on creation failure.
+    - `http::exceptions::UnableToAddRouteHandler` — thrown when adding a route handler fails.
+    - All `http::exceptions` types inherit from `std::runtime_error`.
 
 See the header files for full signatures and inline documentation.
 
