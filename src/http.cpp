@@ -264,9 +264,17 @@ void http::HttpServer::add_route_handler(const std::string method, const std::st
 {
     try
     {
-        route_handlers[{method, path}] = handler;
+        if (route_handlers.find({method, path}) != route_handlers.end())
+        {
+            throw http::exceptions::UnableToAddRouteHandler("Handler already exists for " + method + " " + path);
+        }
+        route_handlers.insert({{method, path}, handler});
     }
-    catch(const std::exception &e)
+    catch (const http::exceptions::UnableToAddRouteHandler &)
+    {
+        throw;
+    }
+    catch (const std::exception &e)
     {
         log_error(std::string("Error adding route handler for ") + method + " " + path + ": " + e.what());
         throw http::exceptions::UnableToAddRouteHandler();
