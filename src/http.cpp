@@ -93,7 +93,7 @@ void http::HttpServer::start()
 {
     try
     {
-        log_info("Serfer listening on port: " + std::to_string(get_port()));
+        log_info("Server listening on port: " + std::to_string(get_port()));
         int server_id = pimpl->event_manager.register_socket(pimpl->server_socket.fd());
         while (true)
         {
