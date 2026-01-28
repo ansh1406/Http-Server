@@ -2,14 +2,14 @@
 
 **Stable, minimal, low-level HTTP server library (shared object + header-only API surface).**
 
-This project provides a compact C++ HTTP/1.1 server library intended for low-level system usage. The library exposes a small runtime in `http.so` and three public headers that present the API surface to consumers:
+This project provides a compact C++ HTTP/1.1 server library intended for low-level system usage. The library exposes a small runtime in `libhttp.so` and three public headers that present the API surface to consumers:
 
 - [includes/http.hpp](includes/http.hpp)
 - [includes/http_request.hpp](includes/http_request.hpp)
 - [includes/http_response.hpp](includes/http_response.hpp)
 - [includes/http_constants.hpp](includes/http_constants.hpp)
 
-The implementation lives in `src/` and the build helper `build.sh` produces `build/http.so` and copies the public headers into `build/` for distribution.
+The implementation lives in `src/` and the build helper `build.sh` produces `build/libhttp.so` and copies the public headers into `build/` for distribution.
 
 **Intended use**
 - Embed a lightweight HTTP server into system services, daemons, or test harnesses.
@@ -82,42 +82,54 @@ From the project root:
 ./build.sh
 ```
 
-`build.sh` will compile the sources into `build/http.so` and copy the public headers into `build/`.
+`build.sh` will compile the sources into `build/libhttp.so` and copy the public headers into `build/`.
 
 Manual build (equivalent)
 
 ```bash
 mkdir -p build
-g++ -shared -fPIC -I. src/*.cpp -o build/http.so -O2 -std=c++11
+g++ -shared -fPIC -I. src/*.cpp -o build/libhttp.so -O2 -std=c++11
 cp includes/http.hpp includes/http_request.hpp includes/http_response.hpp includes/http_constants.hpp build/
+```
+
+CMake build (recommended)
+
+This repository includes a `CMakeLists.txt` which defines a shared library target named `http`. On Linux the built file will be `libhttp.so` and will be placed in the CMake build directory (`CMAKE_BINARY_DIR`, typically `build/`). The CMake target also performs a post-build step that copies the public headers from `includes/` into the build directory.
+
+Requirements: CMake 3.5 or newer and a C++11-capable compiler.
+
+From the project root:
+
+```bash
+mkdir -p build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release
+```
+
+The produced shared object will be `build/libhttp.so`. To build a debug variant use `-DCMAKE_BUILD_TYPE=Debug` or pass other generator-specific flags to `cmake`.
+
+The `build.sh` script remains available as a quick single-command build alternative:
+
+```bash
+./build.sh
 ```
 
 Linking against the shared object
 
-Two common options:
+Linking against the shared object
 
-- Rename the produced file to follow the platform convention and link normally:
+Common options:
 
 ```bash
-mv build/http.so build/libhttp.so
 g++ -Ibuild -Lbuild -lhttp -Wl,-rpath,$PWD/build my_app.cpp -o my_app
-```
 
-- Keep the name `http.so` and link with the linker `-l:` syntax:
-
-```bash
-g++ -Ibuild -Lbuild -l:http.so -Wl,-rpath,$PWD/build my_app.cpp -o my_app
-```
-
-Or link by absolute path at link time:
-
-```bash
-g++ -Ibuild my_app.cpp build/http.so -o my_app
+g++ -Ibuild my_app.cpp build/libhttp.so -o my_app
 ```
 
 Run-time loader notes
 
-- To run an executable that depends on `build/http.so`, either install it to a system library path (`/usr/local/lib`) or set `LD_LIBRARY_PATH`:
+- To run an executable that depends on `build/libhttp.so`, either install it to a system library path (`/usr/local/lib`) or set `LD_LIBRARY_PATH`:
 
 ```bash
 export LD_LIBRARY_PATH=$PWD/build:$LD_LIBRARY_PATH
