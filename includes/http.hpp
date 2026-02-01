@@ -81,15 +81,21 @@ int main()
 {
     try
     {
-        http::HttpServerConfig config{port: 8080, max_pending_connections: 100 ,max_concurrent_connections:100 ,external_logging:false, inactive_connection_timeout: 60};
-        http::HttpServer server(config);
-
-        server.add_route_handler("GET", "/hello", [](const http::HttpRequest &req, http::HttpResponse &res) {
-            res.set_status_code(200);
-            res.set_status_message("OK");
-            res.add_header("Content-Type", "text/plain");
-            std::string body = "Hello, World!";
-            res.set_body(std::vector<char>(body.begin(), body.end()));
+        http::HttpServerConfig config{8080, 100, 100, 60, false};
+        http::HttpServer server(config, [](const http::HttpRequest &req, http::HttpResponse &res) {
+            if (req.method == "GET" && req.uri == "/hello") {
+                res.set_status_code(200);
+                res.set_status_message("OK");
+                res.add_header("Content-Type", "text/plain");
+                std::string body = "Hello, World!";
+                res.set_body(std::vector<char>(body.begin(), body.end()));
+            } else {
+                res.set_status_code(404);
+                res.set_status_message("Not Found");
+                res.add_header("Content-Type", "text/plain");
+                std::string body = "Not Found";
+                res.set_body(std::vector<char>(body.begin(), body.end()));
+            }
         });
 
         server.start();

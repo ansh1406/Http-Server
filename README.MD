@@ -13,13 +13,13 @@ The implementation lives in `src/` and the build helper `build.sh` produces `bui
 
 **Intended use**
 - Embed a lightweight HTTP server into system services, daemons, or test harnesses.
-- Designed for single-process, non-opinionated routing: user code provides route handlers.
+- Designed for single-process usage where consumer code provides a single global request handler callback for all incoming requests.
 - Minimal external dependencies; built with g++ and standard library only.
 
 **Highlights**
 - Small, explicit API surface for low-level integration.
 - Exposes `HttpServer` runtime via shared object and headers for compile-time types.
-- Simple route handler registration based on method+path.
+- Single global request handler callback — consumers implement routing and response logic.
 
 **Public API (summary)**
 
@@ -33,7 +33,7 @@ The implementation lives in `src/` and the build helper `build.sh` produces `bui
   - Constructible with just status code / message or with full headers/body.
 
   - `http::HttpServer` (in [includes/http.hpp](includes/http.hpp))
-  - Construct with `http::HttpServerConfig`:
+  - Construct with `http::HttpServerConfig` and a request handler callback:
     - `port` (unsigned short)
     - `max_pending_connections` (unsigned int)
     - `max_concurrent_connections` (unsigned int)
@@ -41,10 +41,10 @@ The implementation lives in `src/` and the build helper `build.sh` produces `bui
     - `external_logging` (bool)
   - Methods:
     - `start()` — begin listening and serving.
-    - `add_route_handler(method, path, handler)` — register a route handler where `handler` is `std::function<void(const http::HttpRequest&, http::HttpResponse&)>`.
+  - Construction:
+    - The `HttpServer` is constructed with an `HttpServerConfig` and a request handler callback with signature `std::function<void(const http::HttpRequest&, http::HttpResponse&)>`. The provided callback is invoked for every incoming request and should populate the provided `HttpResponse`.
   - Exceptions:
     - `http::exceptions::CanNotCreateServer` — thrown on creation failure.
-    - `http::exceptions::UnableToAddRouteHandler` — thrown when adding a route handler fails.
     - All `http::exceptions` types inherit from `std::runtime_error`.
 
 See the header files for full signatures and inline documentation.
@@ -57,14 +57,12 @@ Quick example (consumer code)
 
 int main() {
     http::HttpServerConfig cfg{8080, 100, 100, 60, false};
-    http::HttpServer server(cfg);
-
-    server.add_route_handler("GET", "/hello", [](const http::HttpRequest &req, http::HttpResponse &res){
-        res.set_status_code(200);
-        res.set_status_message("OK");
-        res.add_header("Content-Type", "text/plain");
-        std::string body = "Hello, World!";
-        res.set_body(std::vector<char>(body.begin(), body.end()));
+    http::HttpServer server(cfg, [](const http::HttpRequest &req, http::HttpResponse &res){
+      res.set_status_code(200);
+      res.set_status_message("OK");
+      res.add_header("Content-Type", "text/plain");
+      std::string body = "Hello, World!";
+      res.set_body(std::vector<char>(body.begin(), body.end()));
     });
 
     server.start();
