@@ -50,7 +50,7 @@ void initialize_logger(const bool external_logging)
     }
 }
 
-http::HttpServer::HttpServer(HttpServerConfig _config) : config(_config)
+http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler) : config(_config), request_handler(handler)
 {
     try
     {
@@ -128,7 +128,7 @@ void http::HttpServer::start()
                         continue;
 
                     HttpConnection &connection = connections.at(conn_id);
-                    connection.handle_request(route_handlers);
+                    connection.handle_request(request_handler);
 
                     pimpl->event_manager.clear_status(conn_id);
                     connection.set_peer_idle();
@@ -198,7 +198,7 @@ void http::HttpServer::accept_new_connections()
     }
 }
 
-void http::HttpConnection::handle_request(std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> &route_handlers) noexcept
+void http::HttpConnection::handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept
 {
     try
     {
@@ -209,19 +209,9 @@ void http::HttpConnection::handle_request(std::map<std::pair<std::string, std::s
         }
         if (current_request_status == request_status::REQUEST_READING_DONE)
         {
-            std::string path = http::HttpRequestParser::path_from_uri(current_request.uri);
-            log_info("Request: " + current_request.method + " " + path);
-            if (route_handlers.find({current_request.method, path}) == route_handlers.end())
-            {
-                log_warning(std::string("No handler found for ") + current_request.method + " " + path);
-                current_response = http::HttpResponse(http::status_codes::NOT_FOUND, "Not Found");
-            }
-            else
-            {
-                route_handlers[{current_request.method, path}](current_request, current_response);
-                current_response.add_header(http::headers::CONNECTION, "close");
-                current_response.add_header(http::headers::CONTENT_LENGTH, std::to_string(current_response.body().size()));
-            }
+            if (request_handler)
+                request_handler(current_request, current_response);
+
             if (peer_is_writable())
                 send_response();
         }
@@ -290,32 +280,6 @@ void http::HttpConnection::send_response()
     {
         current_request_status = request_status::CLIENT_ERROR;
         throw http::exceptions::CanNotSendResponse();
-    }
-}
-
-void http::HttpServer::add_route_handler(const std::string method, const std::string path, std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler)
-{
-    try
-    {
-        if (route_handlers.find({method, path}) != route_handlers.end())
-        {
-            throw http::exceptions::UnableToAddRouteHandler("Handler already exists for " + method + " " + path);
-        }
-        route_handlers.insert({{method, path}, handler});
-    }
-    catch (const http::exceptions::UnableToAddRouteHandler &)
-    {
-        throw;
-    }
-    catch (const std::exception &e)
-    {
-        log_error(std::string("Error adding route handler for ") + method + " " + path + ": " + e.what());
-        throw http::exceptions::UnableToAddRouteHandler();
-    }
-    catch (...)
-    {
-        log_error(std::string("Unknown error adding route handler for ") + method + " " + path);
-        throw http::exceptions::UnableToAddRouteHandler();
     }
 }
 

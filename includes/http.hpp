@@ -19,13 +19,6 @@ namespace http
             CanNotCreateServer(const std::string &message = "")
                 : std::runtime_error("HTTP: Unable to create server" + (message.empty() ? "" : "\n" + message)) {}
         };
-
-        class UnableToAddRouteHandler : public std::runtime_error
-        {
-        public:
-            UnableToAddRouteHandler(const std::string &message = "")
-                : std::runtime_error("HTTP: Unable to add route handler" + (message.empty() ? "" : "\n" + message)) {}
-        };
     }
 
     struct HttpServerConfig
@@ -48,7 +41,7 @@ namespace http
         Impl *pimpl;
         HttpServerConfig config;
         std::map<int, HttpConnection> connections;
-        std::map<std::pair<std::string, std::string>, std::function<void(const http::HttpRequest &, http::HttpResponse &)>> route_handlers;
+        std::function<void(const http::HttpRequest &, http::HttpResponse &)> request_handler;
         std::string get_ip();
         unsigned short get_port();
         void log_info(const std::string &message);
@@ -61,7 +54,7 @@ namespace http
         /// @brief Opens an HTTP/1.1 on the specified port. Over TCP.
         /// @param config Configuration for the HTTP server.
         /// @throws http::exceptions::CanNotCreateServer if the server cannot be created.
-        explicit HttpServer(HttpServerConfig config);
+        explicit HttpServer(HttpServerConfig config, const std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler);
 
         HttpServer(const HttpServer &) = delete;
         HttpServer &operator=(const HttpServer &) = delete;
@@ -73,12 +66,6 @@ namespace http
 
         /// @brief Starts the server to listen for incoming requests.
         void start();
-        /// @brief Adds a route handler for the specified HTTP method and path.
-        /// @param method Http method (e.g., "GET", "POST"). Method names are case-sensitive.
-        /// @param path URL path (e.g., "/api/data"). Path is case-sensitive.
-        /// @param handler Accepts a callback function that takes an http::HttpRequest and http::HttpResponse as parameters.
-        void add_route_handler(const std::string method, const std::string path,
-                               const std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler);
     };
 }
 #endif // HTTP_HPP
