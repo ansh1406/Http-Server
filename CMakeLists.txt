@@ -10,13 +10,24 @@ file(GLOB SRC_FILES "${SRC_DIR}/*.cpp")
 
 include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/includes)
 
-add_library(http SHARED ${SRC_FILES})
+set(BUILD_LIBRARY_TYPE "STATIC" CACHE STRING "Library type to build: SHARED or STATIC")
+set_property(CACHE BUILD_LIBRARY_TYPE PROPERTY STRINGS SHARED STATIC)
 
-set_target_properties(http PROPERTIES
-	PREFIX ""
-	OUTPUT_NAME "libhttp"
-	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-)
+add_library(http ${BUILD_LIBRARY_TYPE} ${SRC_FILES})
+
+if(BUILD_LIBRARY_TYPE STREQUAL "SHARED")
+	set_target_properties(http PROPERTIES
+		PREFIX ""
+		OUTPUT_NAME "libhttp"
+		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+	)
+elseif(BUILD_LIBRARY_TYPE STREQUAL "STATIC")
+	set_target_properties(http PROPERTIES
+		PREFIX ""
+		OUTPUT_NAME "libhttp"
+		ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+	)
+endif()
 
 set_target_properties(http PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(http PRIVATE -O2)

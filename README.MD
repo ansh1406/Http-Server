@@ -107,6 +107,33 @@ cmake --build . --config Release
 
 The produced shared object will be `build/libhttp.so`. To build a debug variant use `-DCMAKE_BUILD_TYPE=Debug` or pass other generator-specific flags to `cmake`.
 
+Library type selection
+
+This project exposes a CMake cache variable `BUILD_LIBRARY_TYPE` which lets you select what kind of library to produce. Valid values are `SHARED` (default) and `STATIC`.
+
+Examples:
+
+```bash
+cmake -S . -B build -DBUILD_LIBRARY_TYPE=SHARED
+cmake --build build
+
+cmake -S . -B build -DBUILD_LIBRARY_TYPE=STATIC
+cmake --build build
+```
+
+- `SHARED` builds `build/libhttp.so` (shared object).
+- `STATIC` builds `build/libhttp.a` (static archive).
+
+Linking examples:
+
+```bash
+# Link against shared object
+g++ -Ibuild -Lbuild -lhttp -Wl,-rpath,$PWD/build my_app.cpp -o my_app
+
+# Link against static archive
+g++ -Ibuild my_app.cpp build/libhttp.a -o my_app
+```
+
 The `build.sh` script remains available as a quick single-command build alternative:
 
 ```bash
