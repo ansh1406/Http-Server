@@ -19,13 +19,13 @@ if(BUILD_LIBRARY_TYPE STREQUAL "SHARED")
 	set_target_properties(http PROPERTIES
 		PREFIX ""
 		OUTPUT_NAME "libhttp"
-		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 	)
 elseif(BUILD_LIBRARY_TYPE STREQUAL "STATIC")
 	set_target_properties(http PROPERTIES
 		PREFIX ""
 		OUTPUT_NAME "libhttp"
-		ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+		ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 	)
 endif()
 
@@ -33,19 +33,19 @@ set_target_properties(http PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(http PRIVATE -O2)
 
 add_custom_command(TARGET http POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/includes"
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/includes"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_CURRENT_SOURCE_DIR}/includes/http.hpp"
-		"${CMAKE_BINARY_DIR}/includes/http.hpp"
+		"${CMAKE_CURRENT_BINARY_DIR}/includes/http.hpp"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_CURRENT_SOURCE_DIR}/includes/http_request.hpp"
-		"${CMAKE_BINARY_DIR}/includes/http_request.hpp"
+		"${CMAKE_CURRENT_BINARY_DIR}/includes/http_request.hpp"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_CURRENT_SOURCE_DIR}/includes/http_response.hpp"
-		"${CMAKE_BINARY_DIR}/includes/http_response.hpp"
+		"${CMAKE_CURRENT_BINARY_DIR}/includes/http_response.hpp"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_CURRENT_SOURCE_DIR}/includes/http_constants.hpp"
-		"${CMAKE_BINARY_DIR}/includes/http_constants.hpp"
+		"${CMAKE_CURRENT_BINARY_DIR}/includes/http_constants.hpp"
 )
 
 message(STATUS "Configured project to build shared library libhttp.so in the build directory")
