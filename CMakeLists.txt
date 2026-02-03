@@ -5,10 +5,10 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
+set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 file(GLOB SRC_FILES "${SRC_DIR}/*.cpp")
 
-include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/includes)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/includes)
 
 set(BUILD_LIBRARY_TYPE "STATIC" CACHE STRING "Library type to build: SHARED or STATIC")
 set_property(CACHE BUILD_LIBRARY_TYPE PROPERTY STRINGS SHARED STATIC)
@@ -35,16 +35,16 @@ target_compile_options(http PRIVATE -O2)
 add_custom_command(TARGET http POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/includes"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		"${CMAKE_SOURCE_DIR}/includes/http.hpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/includes/http.hpp"
 		"${CMAKE_BINARY_DIR}/includes/http.hpp"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		"${CMAKE_SOURCE_DIR}/includes/http_request.hpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/includes/http_request.hpp"
 		"${CMAKE_BINARY_DIR}/includes/http_request.hpp"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		"${CMAKE_SOURCE_DIR}/includes/http_response.hpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/includes/http_response.hpp"
 		"${CMAKE_BINARY_DIR}/includes/http_response.hpp"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		"${CMAKE_SOURCE_DIR}/includes/http_constants.hpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/includes/http_constants.hpp"
 		"${CMAKE_BINARY_DIR}/includes/http_constants.hpp"
 )
 
