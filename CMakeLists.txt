@@ -13,7 +13,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/incl
 set(BUILD_LIBRARY_TYPE "STATIC" CACHE STRING "Library type to build: SHARED or STATIC")
 set_property(CACHE BUILD_LIBRARY_TYPE PROPERTY STRINGS SHARED STATIC)
 
-add_library(http ${BUILD_LIBRARY_TYPE} ${SRC_FILES})
+add_library(http_objects OBJECT ${SRC_FILES})
+target_include_directories(http_objects PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/includes)
+set_target_properties(http_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_options(http_objects PRIVATE -O2)
+
+add_library(http ${BUILD_LIBRARY_TYPE} $<TARGET_OBJECTS:http_objects>)
 
 if(BUILD_LIBRARY_TYPE STREQUAL "SHARED")
 	set_target_properties(http PROPERTIES
@@ -47,5 +52,3 @@ add_custom_command(TARGET http POST_BUILD
 		"${CMAKE_CURRENT_SOURCE_DIR}/includes/http_constants.hpp"
 		"${CMAKE_CURRENT_BINARY_DIR}/includes/http_constants.hpp"
 )
-
-message(STATUS "Configured project to build shared library libhttp.so in the build directory")
