@@ -1,9 +1,10 @@
 #ifndef HTTP_CONNECTION_HPP
 #define HTTP_CONNECTION_HPP
 
+#include "http/http_request.hpp"
+#include "http/http_response.hpp"
+
 #include "tcp.hpp"
-#include "includes/http_request.hpp"
-#include "includes/http_response.hpp"
 
 #include <string>
 #include <map>
