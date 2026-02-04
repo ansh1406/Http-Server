@@ -2,6 +2,8 @@
 #define HTTP_CONNECTION_HPP
 
 #include "tcp.hpp"
+#include "includes/http_request.hpp"
+#include "includes/http_response.hpp"
 
 #include <string>
 #include <map>
@@ -32,9 +34,6 @@ namespace http
         const int READING = 1;
         const int WRITING = 2;
     }
-
-    class HttpRequest;
-    class HttpResponse;
 
     class HttpConnection
     {

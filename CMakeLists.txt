@@ -8,13 +8,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 file(GLOB SRC_FILES "${SRC_DIR}/*.cpp")
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/includes)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(BUILD_LIBRARY_TYPE "STATIC" CACHE STRING "Library type to build: SHARED or STATIC")
 set_property(CACHE BUILD_LIBRARY_TYPE PROPERTY STRINGS SHARED STATIC)
 
 add_library(http_objects OBJECT ${SRC_FILES})
-target_include_directories(http_objects PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/includes)
+target_include_directories(http_objects PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set_target_properties(http_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(http_objects PRIVATE -O2)
 

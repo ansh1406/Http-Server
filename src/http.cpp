@@ -1,13 +1,14 @@
+#include "http_connection.hpp"
+#include "http_exceptions.hpp"
+#include "http_parser.hpp"
+#include "tcp.hpp"
+#include "event_manager.hpp"
+#include "logger.hpp"
+
 #include "includes/http.hpp"
-#include "includes/http_connection.hpp"
-#include "includes/http_exceptions.hpp"
-#include "includes/http_parser.hpp"
 #include "includes/http_constants.hpp"
 #include "includes/http_request.hpp"
 #include "includes/http_response.hpp"
-#include "includes/tcp.hpp"
-#include "includes/event_manager.hpp"
-#include "includes/logger.hpp"
 
 namespace http
 {
