@@ -4,13 +4,13 @@
 #include "http_request.hpp"
 #include "http_response.hpp"
 
-#include <map>
 #include <functional>
 #include <string>
 #include <stdexcept>
 
 namespace http
 {
+    using RequestHandler = std::function<void(const http::HttpRequest &, http::HttpResponse &)>;
     namespace exceptions
     {
         class CanNotCreateServer : public std::runtime_error
@@ -37,24 +37,13 @@ namespace http
     private:
         /// @brief Pointer to incomplete implementation to abstract away underlying details.
         struct Impl;
-        /// @brief Pointer to the implementation.
         Impl *pimpl;
-        HttpServerConfig config;
-        std::map<int, HttpConnection> connections;
-        std::function<void(const http::HttpRequest &, http::HttpResponse &)> request_handler;
-        std::string get_ip();
-        unsigned short get_port();
-        void log_info(const std::string &message);
-        void log_warning(const std::string &message);
-        void log_error(const std::string &message);
-        void check_and_remove_inactive_connections();
-        void accept_new_connections();
 
     public:
         /// @brief Opens an HTTP/1.1 on the specified port. Over TCP.
         /// @param config Configuration for the HTTP server.
         /// @throws http::exceptions::CanNotCreateServer if the server cannot be created.
-        explicit HttpServer(HttpServerConfig config, const std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler);
+        explicit HttpServer(HttpServerConfig config, RequestHandler handler);
 
         HttpServer(const HttpServer &) = delete;
         HttpServer &operator=(const HttpServer &) = delete;

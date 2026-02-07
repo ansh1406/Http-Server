@@ -10,6 +10,8 @@
 #include "event_manager.hpp"
 #include "logger.hpp"
 
+#include <map>
+
 namespace http
 {
     namespace sizes
@@ -23,7 +25,22 @@ struct http::HttpServer::Impl
 {
     tcp::ListeningSocket server_socket;
     tcp::EventManager event_manager;
-    Impl(tcp::ListeningSocket &&sock, tcp::EventManager &&em) : server_socket(std::move(sock)), event_manager(std::move(em)) {}
+    HttpServerConfig config;
+    std::map<int, HttpConnection> connections;
+    RequestHandler request_handler;
+
+    void check_and_remove_inactive_connections();
+    void accept_new_connections();
+    void start_event_loop();
+
+    void log_info(const std::string &message);
+    void log_warning(const std::string &message);
+    void log_error(const std::string &message);
+
+    std::string get_ip();
+    unsigned short get_port();
+
+    Impl(tcp::ListeningSocket &&sock, tcp::EventManager &&em, HttpServerConfig _config, RequestHandler handler) : server_socket(std::move(sock)), event_manager(std::move(em)), config(_config), request_handler(handler) {}
 };
 
 bool logger__running = false;
@@ -51,11 +68,11 @@ void initialize_logger(const bool external_logging)
     }
 }
 
-http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler) : config(_config), request_handler(handler)
+http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(const http::HttpRequest &, http::HttpResponse &)> handler)
 {
     try
     {
-        initialize_logger(config.external_logging);
+        initialize_logger(_config.external_logging);
         logger__running = true;
     }
     catch (...)
@@ -64,48 +81,65 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
 
     try
     {
-        pimpl = new Impl(std::move(tcp::ListeningSocket(config.port, config.max_pending_connections)), std::move(tcp::EventManager(config.max_concurrent_connections + 1, -1)));
-        log_info("Server created on port:" + std::to_string(config.port));
+        pimpl = new Impl(std::move(tcp::ListeningSocket(_config.port, _config.max_pending_connections)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), _config, handler);
+        pimpl->log_info("Server created on port:" + std::to_string(_config.port));
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {
-        log_error(std::string("Error opening server socket: ") + e.what());
+        if (pimpl)
+        {
+            pimpl->log_error(std::string("Error opening server socket: ") + e.what());
+        }
         throw http::exceptions::CanNotCreateServer();
     }
     catch (const std::exception &e)
     {
-        log_error(std::string("Error creating server: ") + e.what());
+        if (pimpl)
+        {
+            pimpl->log_error(std::string("Error creating server: ") + e.what());
+        }
         throw http::exceptions::CanNotCreateServer();
     }
     catch (...)
     {
-        log_error("Unknown error opening server socket.");
+        if (pimpl)
+        {
+            pimpl->log_error("Unknown error opening server socket.");
+        }
         throw http::exceptions::CanNotCreateServer();
     }
 }
 
 http::HttpServer::~HttpServer()
 {
-    log_info("Server closed.");
+    if (pimpl)
+    {
+        pimpl->log_info("Server closed.");
+    }
     delete pimpl;
 }
 
 void http::HttpServer::start()
 {
+    pimpl->start_event_loop();
+}
+
+void http::HttpServer::Impl::start_event_loop()
+{
     try
     {
-        log_info("Server listening on port: " + std::to_string(get_port()));
-        int server_id = pimpl->event_manager.register_socket(pimpl->server_socket.fd());
+        log_info("Server listening on port: " + std::to_string(config.port));
+        int server_id = event_manager.register_socket(server_socket.fd());
         while (true)
         {
             try
             {
-                std::vector<int> active_connections = pimpl->event_manager.wait_for_events();
+                std::vector<int> active_connections = event_manager.wait_for_events();
 
-                if (pimpl->event_manager.is_readable(server_id))
+                if (event_manager.is_readable(server_id))
                 {
                     accept_new_connections();
-                    pimpl->event_manager.clear_status(server_id);
+                    event_manager.clear_status(server_id);
                 }
 
                 for (auto conn_id : active_connections)
@@ -113,11 +147,11 @@ void http::HttpServer::start()
                     if (conn_id == server_id)
                         continue;
                     HttpConnection &connection = connections.at(conn_id);
-                    if (pimpl->event_manager.is_readable(conn_id))
+                    if (event_manager.is_readable(conn_id))
                     {
                         connection.set_peer_writing();
                     }
-                    if (pimpl->event_manager.is_writable(conn_id))
+                    if (event_manager.is_writable(conn_id))
                     {
                         connection.set_peer_reading();
                     }
@@ -131,17 +165,17 @@ void http::HttpServer::start()
                     HttpConnection &connection = connections.at(conn_id);
                     connection.handle_request(request_handler);
 
-                    pimpl->event_manager.clear_status(conn_id);
+                    event_manager.clear_status(conn_id);
                     connection.set_peer_idle();
 
                     if (connection.status() == request_status::SENDING_RESPONSE)
                     {
-                        pimpl->event_manager.add_to_write_monitoring(conn_id);
+                        event_manager.add_to_write_monitoring(conn_id);
                     }
 
                     if (connection.status() == request_status::COMPLETED || connection.status() == request_status::CLIENT_ERROR)
                     {
-                        pimpl->event_manager.remove_socket(conn_id);
+                        event_manager.remove_socket(conn_id);
                         connections.erase(conn_id);
                     }
                 }
@@ -169,7 +203,7 @@ void http::HttpServer::start()
     }
 }
 
-void http::HttpServer::check_and_remove_inactive_connections()
+void http::HttpServer::Impl::check_and_remove_inactive_connections()
 {
     static time_t last_timeout_check = 0;
     if (time(nullptr) - last_timeout_check >= 5)
@@ -181,19 +215,19 @@ void http::HttpServer::check_and_remove_inactive_connections()
             if (conn.idle_time() > config.inactive_connection_timeout)
             {
                 log_info("Connection timed out: " + conn.get_ip() + ":" + std::to_string(conn.get_port()));
-                pimpl->event_manager.remove_socket(it.first);
+                event_manager.remove_socket(it.first);
                 connections.erase(it.first);
             }
         }
     }
 }
 
-void http::HttpServer::accept_new_connections()
+void http::HttpServer::Impl::accept_new_connections()
 {
-    std::vector<tcp::ConnectionSocket> new_connections = pimpl->server_socket.accept_connections();
+    std::vector<tcp::ConnectionSocket> new_connections = server_socket.accept_connections();
     for (auto &conn : new_connections)
     {
-        int conn_id = pimpl->event_manager.register_socket(conn.fd());
+        int conn_id = event_manager.register_socket(conn.fd());
         connections.insert({conn_id, http::HttpConnection(std::move(conn))});
         log_info("Connection accepted: " + connections.at(conn_id).get_ip() + ":" + std::to_string(connections.at(conn_id).get_port()));
     }
@@ -587,14 +621,14 @@ void http::HttpConnection::read_from_client()
     }
 }
 
-std::string http::HttpServer::get_ip()
+std::string http::HttpServer::Impl::get_ip()
 {
-    return pimpl->server_socket.get_ip();
+    return server_socket.get_ip();
 }
 
-unsigned short http::HttpServer::get_port()
+unsigned short http::HttpServer::Impl::get_port()
 {
-    return pimpl->server_socket.get_port();
+    return server_socket.get_port();
 }
 
 void http::HttpConnection::log_info(const std::string &message)
@@ -636,7 +670,7 @@ void http::HttpConnection::log_error(const std::string &message)
     }
 }
 
-void http::HttpServer::log_info(const std::string &message)
+void http::HttpServer::Impl::log_info(const std::string &message)
 {
     try
     {
@@ -649,7 +683,7 @@ void http::HttpServer::log_info(const std::string &message)
     }
 }
 
-void http::HttpServer::log_warning(const std::string &message)
+void http::HttpServer::Impl::log_warning(const std::string &message)
 {
     try
     {
@@ -662,7 +696,7 @@ void http::HttpServer::log_warning(const std::string &message)
     }
 }
 
-void http::HttpServer::log_error(const std::string &message)
+void http::HttpServer::Impl::log_error(const std::string &message)
 {
     try
     {
