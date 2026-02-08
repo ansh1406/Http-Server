@@ -21,7 +21,6 @@ With its modular design, developers can easily extend its functionality to suit 
 #include <string>
 #include <stdexcept>
 
-
 /// @brief Namespace for the HTTP server library. All the classes, functions, and constants related to the HTTP server are defined within this namespace.
 namespace http
 {
@@ -50,7 +49,9 @@ namespace http
         unsigned int max_concurrent_connections;
         /// @brief The timeout duration in seconds for inactive connections. If a connection remains idle (i.e., no data is sent or received) for longer than this duration, the server may close the connection to free up resources. It is a time_t value.
         time_t inactive_connection_timeout_in_seconds;
-        /// @brief A boolean flag indicating whether to enable external logging. If set to true, the server will log information about incoming requests, responses, and other events to an external logging system. If set to false, the server will log to stdout and stderr if external logging is disabled. The default value is false.
+        /// @brief A boolean flag indicating whether to enable logging. If set to true, the server will log information about incoming requests, responses, and other events. If set to false, the server will not log any information. The default value is false.
+        bool enable_logging;
+        /// @brief A boolean flag indicating whether to enable external logging. If set to true, the server will log information about incoming requests, responses, and other events to an external logging system. If set to false, the server will log to stdout and stderr.
         bool external_logging;
     };
     class HttpConnection;

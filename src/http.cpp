@@ -72,8 +72,11 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
 {
     try
     {
-        initialize_logger(_config.external_logging);
-        logger__running = true;
+        if (_config.enable_logging)
+        {
+            initialize_logger(_config.external_logging);
+            logger__running = true;
+        }
     }
     catch (...)
     {
