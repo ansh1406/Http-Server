@@ -42,17 +42,17 @@ namespace http
     struct HttpServerConfig
     {
         /// @brief The port number on which the HTTP server will listen for incoming connections. It is an unsigned short integer, and the default value is typically 80 for HTTP.
-        unsigned short port;
+        unsigned short port = 8080;
         /// @brief The maximum number of pending connections that the server can have in its queue. This parameter controls how many incoming connections can be waiting to be accepted before the server starts rejecting new connections. It is an unsigned integer.
-        unsigned int max_pending_connections;
+        unsigned int max_pending_connections = 128;
         /// @brief The maximum number of concurrent connections that the server can handle at any given time. It is an unsigned integer. If the number of active connections exceeds this limit, the server may start rejecting new connections until some of the existing connections are closed.
-        unsigned int max_concurrent_connections;
+        unsigned int max_concurrent_connections = 128;
         /// @brief The timeout duration in seconds for inactive connections. If a connection remains idle (i.e., no data is sent or received) for longer than this duration, the server may close the connection to free up resources. It is a time_t value.
-        time_t inactive_connection_timeout_in_seconds;
+        time_t inactive_connection_timeout_in_seconds = 60;
         /// @brief A boolean flag indicating whether to enable logging. If set to true, the server will log information about incoming requests, responses, and other events. If set to false, the server will not log any information. The default value is false.
-        bool enable_logging;
+        bool enable_logging = false;
         /// @brief A boolean flag indicating whether to enable external logging. If set to true, the server will log information about incoming requests, responses, and other events to an external logging system. If set to false, the server will log to stdout and stderr.
-        bool external_logging;
+        bool external_logging = false;
     };
     class HttpConnection;
 
