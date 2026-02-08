@@ -3,6 +3,7 @@
 
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "http_constants.hpp"
 
 #include <functional>
 #include <string>
