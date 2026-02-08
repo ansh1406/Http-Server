@@ -1,168 +1,115 @@
-# Http-Server (C++ HTTP library)
+# Http-Server (HTTP library for C++)
 
-**Stable, minimal, low-level HTTP server library (shared object + header-only API surface).**
+## Overview
 
-This project provides a compact C++ HTTP/1.1 server library intended for low-level system usage. The library exposes a small runtime in `libhttp.so` and three public headers that present the API surface to consumers:
+Http-Server is a C++ library designed to facilitate the creation of HTTP servers. It provides a simple and efficient way to handle HTTP requests and responses, making it easier for developers to build web applications and services.
 
-- [includes/http.hpp](includes/http.hpp)
-- [includes/http_request.hpp](includes/http_request.hpp)
-- [includes/http_response.hpp](includes/http_response.hpp)
-- [includes/http_constants.hpp](includes/http_constants.hpp)
+## Features
 
-The implementation lives in `src/` and the build helper `build.sh` produces `build/libhttp.so` and copies the public headers into `build/` for distribution.
+- Support for HTTP/1.1 protocol.
+- Event driven architecture for handling multiple connections concurrently.
+- Easy-to-use API for processing HTTP requests and generating responses.
+- Built-in logging functionality for monitoring server activity and debugging.
+- Support for reading chunked bodies.
+- Automatic handling of connection timeouts and protocol level errors.
+- Automatic setting of Content-Length header for responses with a body.
 
-**Intended use**
-- Embed a lightweight HTTP server into system services, daemons, or test harnesses.
-- Designed for single-process usage where consumer code provides a single global request handler callback for all incoming requests.
-- Minimal external dependencies; built with g++ and standard library only.
+## Usage
 
-**Highlights**
-- Small, explicit API surface for low-level integration.
-- Exposes `HttpServer` runtime via shared object and headers for compile-time types.
-- Single global request handler callback — consumers implement routing and response logic.
+### Classes
 
-**Public API (summary)**
+- `HttpServer`: The main class for creating and managing the HTTP server.
+- `HttpServerConfig`: A configuration class for setting up the server parameters such as port number, maximum connections, and timeout settings.
+- `HttpRequest`: Represents an incoming HTTP request, providing access to headers, body, and other request details.
+- `HttpResponse`: Represents an HTTP response that can be sent back to the client, allowing you to set status codes, headers, and body content.
 
-- `http::HttpRequest` (in [includes/http_request.hpp](includes/http_request.hpp))
-  - Public members: `method`, `uri`, `version`, `headers`, `body`.
-  - Represents a parsed incoming HTTP request.
+> Note: All public API functions and classes are declared under the `http` namespace. All functions are well documented in the include files.
 
-- `http::HttpResponse` (in [includes/http_response.hpp](includes/http_response.hpp))
-  - Methods: `version()`, `status_code()`, `status_message()`, `headers()`, `body()` (const accessors).
-  - Mutators: `set_status_code(int)`, `set_status_message(string)`, `set_body(vector<char>)`, `add_header(string,string)`.
-  - Constructible with just status code / message or with full headers/body.
+### How to use in your project
 
-  - `http::HttpServer` (in [includes/http.hpp](includes/http.hpp))
-  - Construct with `http::HttpServerConfig` and a request handler callback:
-    - `port` (unsigned short)
-    - `max_pending_connections` (unsigned int)
-    - `max_concurrent_connections` (unsigned int)
-    - `inactive_connection_timeout` (time_t)
-    - `external_logging` (bool)
-  - Methods:
-    - `start()` — begin listening and serving.
-  - Construction:
-    - The `HttpServer` is constructed with an `HttpServerConfig` and a request handler callback with signature `std::function<void(const http::HttpRequest&, http::HttpResponse&)>`. The provided callback is invoked for every incoming request and should populate the provided `HttpResponse`.
-  - Exceptions:
-    - `http::exceptions::CanNotCreateServer` — thrown on creation failure.
-    - All `http::exceptions` types inherit from `std::runtime_error`.
+To use the Http-Server library in your C++ project, follow these steps:
 
-See the header files for full signatures and inline documentation.
+1. Clone the repository and build the library.
 
-Quick example (consumer code)
+2. Add [include](include) folder to your project's include path. (If you are copying the header files directly into your project, you are suggested to copy the entire [http](include/http) folder to your project as it is to avoid any issues with the include paths.)
+
+3. Link against the compiled library when building your project.
+
+### Example
+
+Below is a simple example of how to create a basic HTTP server that responds with "Hello, World!" to any incoming request.
 
 ```cpp
-#include "http.hpp"
-#include <iostream>
+#include "http/http.hpp"
+
+#include <vector>
+#include <string>
 
 int main() {
-    http::HttpServerConfig cfg{8080, 100, 100, 60, false};
-    http::HttpServer server(cfg, [](const http::HttpRequest &req, http::HttpResponse &res){
-      res.set_status_code(200);
-      res.set_status_message("OK");
-      res.add_header("Content-Type", "text/plain");
-      std::string body = "Hello, World!";
-      res.set_body(std::vector<char>(body.begin(), body.end()));
+  try
+  {
+    http::HttpServerConfig config;
+    config.port = 8080;
+
+    http::HttpServer server(config,[](http::HttpRequest &request, http::HttpResponse &response) {
+    response.set_status_code(200);
+    response.add_header("Content-Type", "text/plain");
+    std::string body = "Hello, World!";
+    response.set_body(std::vector<char>(body.begin(), body.end()));
     });
 
     server.start();
-    return 0;
+  }
+  catch(const std::exception &e)
+  {
+    std::cerr << "Error: " << e.what() << std::endl;
+  }
 }
 ```
 
-Building the library
+## Build Instructions
 
-A convenience script is included: `build.sh`.
+> [!WARNING]
+> The library is currently only supported on Posix complient linux systems.
 
-From the project root:
+We have provided 2 methods to build the library. You can choose either of them based on your preference.
 
-```bash
-./build.sh
-```
+### Method 1: Using CMake
 
-`build.sh` will compile the sources into `build/libhttp.so` and copy the public headers into `build/`.
+1. Clone the repository:
+   ```bash
+   git clone "https://github.com/ansh1406/Http-Server.git"
+   ```
+2. Navigate to the project directory and create a build directory:
+   ```bash
+   cd Http-Server
+   mkdir build
+   cd build
+   ```
+3. Run CMake to configure the project and generate the build files:
+   ```bash
+   cmake ..
+   ```
+4. Build the library using the generated build files:
+   ```bash
+   cmake --build .
+   ```
+5. This will output `libhttp.so` or `libhttp.a` in the `build` directory according to the `BUILD_LIBRARY_TYPE` option in `CMakeLists.txt`. (This will also output object files as target `http_objects` regardless of any `BUILD_LIBRARY_TYPE` option. You can link against these object files instead of the library if needed.)
 
-Manual build (equivalent)
+### Method 2: Using Bash Script
 
-```bash
-mkdir -p build
-g++ -shared -fPIC -I. src/*.cpp -o build/libhttp.so -O2 -std=c++11
-cp includes/http.hpp includes/http_request.hpp includes/http_response.hpp includes/http_constants.hpp build/
-```
+1. Clone the repository:
 
-CMake build (recommended)
+   ```bash
+   git clone "https://github.com/ansh1406/Http-Server.git"
 
-This repository includes a `CMakeLists.txt` which defines a shared library target named `http`. On Linux the built file will be `libhttp.so` and will be placed in the CMake build directory (`CMAKE_BINARY_DIR`, typically `build/`). The CMake target also performs a post-build step that copies the public headers from `includes/` into the build directory.
+   ```
 
-Requirements: CMake 3.5 or newer and a C++11-capable compiler.
+2. Navigate to the project directory and run the build script:
+   ```bash
+   cd Http-Server
+   sh ./build.sh --help
+   ```
+   then proceed with the instructions provided by the script.
 
-From the project root:
-
-```bash
-mkdir -p build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --config Release
-```
-
-The produced shared object will be `build/libhttp.so`. To build a debug variant use `-DCMAKE_BUILD_TYPE=Debug` or pass other generator-specific flags to `cmake`.
-
-Library type selection
-
-This project exposes a CMake cache variable `BUILD_LIBRARY_TYPE` which lets you select what kind of library to produce. Valid values are `SHARED` (default) and `STATIC`.
-
-Examples:
-
-```bash
-cmake -S . -B build -DBUILD_LIBRARY_TYPE=SHARED
-cmake --build build
-
-cmake -S . -B build -DBUILD_LIBRARY_TYPE=STATIC
-cmake --build build
-```
-
-- `SHARED` builds `build/libhttp.so` (shared object).
-- `STATIC` builds `build/libhttp.a` (static archive).
-
-Linking examples:
-
-```bash
-# Link against shared object
-g++ -Ibuild -Lbuild -lhttp -Wl,-rpath,$PWD/build my_app.cpp -o my_app
-
-# Link against static archive
-g++ -Ibuild my_app.cpp build/libhttp.a -o my_app
-```
-
-The `build.sh` script remains available as a quick single-command build alternative:
-
-```bash
-./build.sh
-```
-
-Linking against the shared object
-
-Linking against the shared object
-
-Common options:
-
-```bash
-g++ -Ibuild -Lbuild -lhttp -Wl,-rpath,$PWD/build my_app.cpp -o my_app
-
-g++ -Ibuild my_app.cpp build/libhttp.so -o my_app
-```
-
-Run-time loader notes
-
-- To run an executable that depends on `build/libhttp.so`, either install it to a system library path (`/usr/local/lib`) or set `LD_LIBRARY_PATH`:
-
-```bash
-export LD_LIBRARY_PATH=$PWD/build:$LD_LIBRARY_PATH
-./my_app
-```
-
-API usage notes
-
-- Route handlers are synchronous callbacks invoked by the server runtime. Handlers should be fast and non-blocking where possible.
-- The server does not provide high-level routing features (e.g., parameterized routes or middleware). Implement in your consumer code.
-- `HttpResponse` body uses `std::vector<char>`; convert from/to `std::string` as needed.
+> This method is not recommended but can be used if you don't have CMake installed or prefer a simpler build process.
