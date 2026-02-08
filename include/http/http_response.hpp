@@ -49,18 +49,18 @@ namespace http
             : _version(versions::HTTP_1_1), _status_code(status_code), _status_message(status_message) {}
 
         /// @return HTTP version as a std::string.
-        const std::string &version() const { return _version; }
+        const std::string &version() const noexcept { return _version; }
         /// @return HTTP status code as an int.
-        int status_code() const { return _status_code; }
+        int status_code() const noexcept { return _status_code; }
         /// @return HTTP status message as a std::string.
-        const std::string &status_message() const { return _status_message; }
+        const std::string &status_message() const noexcept { return _status_message; }
         /// @return HTTP headers as a map of Header key(std::string)-value(std::string) pairs.
-        const std::map<std::string, std::string> &headers() const { return _headers; }
+        const std::map<std::string, std::string> &headers() const noexcept { return _headers; }
         /// @return HTTP body as a vector of chars.
-        const std::vector<char> &body() const { return _body; }
+        const std::vector<char> &body() const noexcept { return _body; }
 
         /// @brief Sets the HTTP status code.
-        void set_status_code(int status_code) { _status_code = status_code; }
+        void set_status_code(int status_code) noexcept { _status_code = status_code; }
         /// @brief Sets the HTTP status message.
         void set_status_message(const std::string &status_message) { _status_message = status_message; }
         /// @brief Adds or updates body of the HTTP response.

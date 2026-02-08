@@ -54,9 +54,9 @@ namespace http
         void read_headers();
         void read_body(long content_length);
         void read_body(); // For chunked transfer encoding
-        void log_info(const std::string &message) const noexcept;
-        void log_warning(const std::string &message) const noexcept;
-        void log_error(const std::string &message) const noexcept;
+        void log_info(const std::string &message) const;
+        void log_warning(const std::string &message) const;
+        void log_error(const std::string &message) const;
 
     public:
         /// @brief Construct a new Http Connection object
@@ -115,7 +115,7 @@ namespace http
         }
 
         /// @return IP address of the connected client
-        std::string get_ip() const noexcept
+        std::string get_ip() const
         {
             return client_socket.get_ip();
         }

@@ -77,7 +77,7 @@ namespace tcp
         SocketHandle fd_;
 
     public:
-        explicit SocketFD(SocketHandle handle = constants::INVALID_SOCKET) : fd_(handle) {}
+        explicit SocketFD(SocketHandle handle = constants::INVALID_SOCKET) noexcept : fd_(handle) {}
 
         SocketFD(const SocketFD &) = delete;
         SocketFD &operator=(const SocketFD &) = delete;
@@ -102,8 +102,8 @@ namespace tcp
             close_fd();
         }
 
-        SocketHandle fd() const { return fd_; }
-        explicit operator bool() const { return fd_ != constants::INVALID_SOCKET; }
+        SocketHandle fd() const noexcept { return fd_; }
+        explicit operator bool() const noexcept { return fd_ != constants::INVALID_SOCKET; }
 
     private:
         void close_fd();
@@ -117,7 +117,7 @@ namespace tcp
         sockaddr_in address;
 
     public:
-        explicit ConnectionSocket(const SocketHandle handle, const sockaddr_in &addr) : socket_fd(handle), address(addr) {}
+        explicit ConnectionSocket(const SocketHandle handle, const sockaddr_in &addr) noexcept : socket_fd(handle), address(addr) {}
 
         ConnectionSocket(ConnectionSocket &&) = default;
         ConnectionSocket &operator=(ConnectionSocket &&) = default;
@@ -125,11 +125,11 @@ namespace tcp
         ConnectionSocket(const ConnectionSocket &) = delete;
         ConnectionSocket &operator=(const ConnectionSocket &) = delete;
 
-        SocketHandle fd() const
+        SocketHandle fd() const noexcept
         {
             return socket_fd.fd();
         }
-        size_t send_data(const std::vector<char> &data , size_t start_pos);
+        size_t send_data(const std::vector<char> &data, size_t start_pos);
         std::vector<char> receive_data();
 
         /// @return IP address of the connected peer as a string
@@ -139,7 +139,7 @@ namespace tcp
         }
 
         /// @return Port number of the connected peer
-        Port get_port() const
+        Port get_port() const noexcept
         {
             return ntohs(address.sin_port);
         }
@@ -158,8 +158,8 @@ namespace tcp
         unsigned int max_pending_connections;
 
     public:
-        ListeningSocket(const in_addr_t ip , const Port port , const unsigned int max_pending);
-        explicit ListeningSocket(const Port port , const unsigned int max_pending) : ListeningSocket(constants::DEFAULT_ADDRESS, port, max_pending) {}
+        ListeningSocket(const in_addr_t ip, const Port port, const unsigned int max_pending);
+        explicit ListeningSocket(const Port port, const unsigned int max_pending) : ListeningSocket(constants::DEFAULT_ADDRESS, port, max_pending) {}
         explicit ListeningSocket(const Port port) : ListeningSocket(constants::DEFAULT_ADDRESS, port, constants::BACKLOG) {}
 
         ListeningSocket(ListeningSocket &&) = default;
@@ -168,7 +168,7 @@ namespace tcp
         ListeningSocket(const ListeningSocket &) = delete;
         ListeningSocket &operator=(const ListeningSocket &) = delete;
 
-        SocketHandle fd() const
+        SocketHandle fd() const noexcept
         {
             return socket_fd.fd();
         }
@@ -183,7 +183,7 @@ namespace tcp
         }
 
         /// @return Port number the socket is bound to
-        Port get_port() const
+        Port get_port() const noexcept
         {
             return ntohs(address.sin_port);
         }
