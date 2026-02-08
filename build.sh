@@ -4,7 +4,7 @@ set -euo pipefail
 
 SRC_DIR="src"
 BUILD_DIR="build"
-INCLUDES_DIR="includes"
+INCLUDE_DIR="include"
 LIB_TYPE="shared" # default
 
 usage() {
@@ -49,7 +49,7 @@ echo "Build start... (type=$LIB_TYPE)"
 
 if [[ "$LIB_TYPE" == "shared" ]]; then
     OUTPUT="$BUILD_DIR/libhttp.so"
-    g++ -shared -fPIC -I. "$SRC_DIR"/*.cpp -o "$OUTPUT" -O2 -std=c++11
+    g++ -shared -fPIC -I"./$INCLUDE_DIR" "$SRC_DIR"/*.cpp -o "$OUTPUT" -O2 -std=c++11
     if [ -f "$OUTPUT" ]; then
         echo "Build successful: $OUTPUT"
     fi
@@ -61,7 +61,7 @@ else
     for f in "$SRC_DIR"/*.cpp; do
         obj="$OBJ_DIR/$(basename "${f%.cpp}.o")"
         echo "  compiling $(basename "$f") -> $(basename "$obj")"
-        g++ -c -fPIC -I. "$f" -o "$obj" -O2 -std=c++11
+        g++ -c -fPIC -I"./$INCLUDE_DIR" "$f" -o "$obj" -O2 -std=c++11
     done
     OUTPUT="$BUILD_DIR/libhttp.a"
     echo "Archiving to $OUTPUT"
@@ -69,10 +69,3 @@ else
     rm -r "$OBJ_DIR"
     echo "Build successful: $OUTPUT"
 fi
-
-echo "Copying header files to build directory..."
-cp "$INCLUDES_DIR"/http.hpp "$BUILD_DIR/includes/"
-cp "$INCLUDES_DIR"/http_request.hpp "$BUILD_DIR/includes/"
-cp "$INCLUDES_DIR"/http_response.hpp "$BUILD_DIR/includes/"
-cp "$INCLUDES_DIR"/http_constants.hpp "$BUILD_DIR/includes/"
-echo "Copied successfully."
