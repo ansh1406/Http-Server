@@ -96,7 +96,7 @@ int main()
 {
     try
     {
-        http::HttpServerConfig config{8080, 100, 100, 60, false};
+        http::HttpServerConfig config{8080, 100, 100, 60, true, false};
         http::HttpServer server(config, [](const http::HttpRequest &req, http::HttpResponse &res) {
             if (req.method == "GET" && req.uri == "/hello") {
                 res.set_status_code(200);
