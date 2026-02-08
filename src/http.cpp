@@ -212,7 +212,7 @@ void http::HttpServer::Impl::check_and_remove_inactive_connections()
         for (auto &it : connections)
         {
             auto &conn = it.second;
-            if (conn.idle_time() > config.inactive_connection_timeout)
+            if (conn.idle_time() > config.inactive_connection_timeout_in_seconds)
             {
                 log_info("Connection timed out: " + conn.get_ip() + ":" + std::to_string(conn.get_port()));
                 event_manager.remove_socket(it.first);

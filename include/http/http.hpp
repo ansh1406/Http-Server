@@ -27,7 +27,8 @@ namespace http
         unsigned short port;
         unsigned int max_pending_connections;
         unsigned int max_concurrent_connections;
-        time_t inactive_connection_timeout;
+        /// @brief The timeout duration in seconds for inactive connections. If a connection remains idle (i.e., no data is sent or received) for longer than this duration, the server may close the connection to free up resources. It is a time_t value.
+        time_t inactive_connection_timeout_in_seconds;
         bool external_logging;
     };
     class HttpConnection;
