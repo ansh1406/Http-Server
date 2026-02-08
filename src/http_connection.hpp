@@ -54,9 +54,9 @@ namespace http
         void read_headers();
         void read_body(long content_length);
         void read_body(); // For chunked transfer encoding
-        void log_info(const std::string &message);
-        void log_warning(const std::string &message);
-        void log_error(const std::string &message);
+        void log_info(const std::string &message) const noexcept;
+        void log_warning(const std::string &message) const noexcept;
+        void log_error(const std::string &message) const noexcept;
 
     public:
         /// @brief Construct a new Http Connection object
@@ -78,50 +78,50 @@ namespace http
 
         void send_response();
 
-        void set_peer_idle()
+        void set_peer_idle() noexcept
         {
             peer_status = connection_status::IDLE;
             last_activity_time = time(nullptr);
         }
 
-        void set_peer_reading()
+        void set_peer_reading() noexcept
         {
             peer_status |= connection_status::READING;
         }
 
-        void set_peer_writing()
+        void set_peer_writing() noexcept
         {
             peer_status |= connection_status::WRITING;
         }
 
-        const bool peer_is_readable() const
+        const bool peer_is_readable() const noexcept
         {
             return peer_status & connection_status::WRITING;
         }
 
-        const bool peer_is_writable() const
+        const bool peer_is_writable() const noexcept
         {
             return peer_status & connection_status::READING;
         }
 
-        const int status() const
+        const int status() const noexcept
         {
             return current_request_status;
         }
 
-        const time_t idle_time() const
+        const time_t idle_time() const noexcept
         {
             return time(nullptr) - last_activity_time;
         }
 
         /// @return IP address of the connected client
-        std::string get_ip() const
+        std::string get_ip() const noexcept
         {
             return client_socket.get_ip();
         }
 
         /// @return Port number of the connected client
-        tcp::Port get_port() const
+        tcp::Port get_port() const noexcept
         {
             return client_socket.get_port();
         }

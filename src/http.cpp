@@ -33,12 +33,12 @@ struct http::HttpServer::Impl
     void accept_new_connections();
     void start_event_loop();
 
-    void log_info(const std::string &message);
-    void log_warning(const std::string &message);
-    void log_error(const std::string &message);
+    void log_info(const std::string &message) const noexcept;
+    void log_warning(const std::string &message) const noexcept;
+    void log_error(const std::string &message) const noexcept;
 
-    std::string get_ip();
-    unsigned short get_port();
+    std::string get_ip() const noexcept;
+    unsigned short get_port() const noexcept;
 
     Impl(tcp::ListeningSocket &&sock, tcp::EventManager &&em, HttpServerConfig _config, RequestHandler handler) : server_socket(std::move(sock)), event_manager(std::move(em)), config(_config), request_handler(handler) {}
 };
@@ -624,17 +624,17 @@ void http::HttpConnection::read_from_client()
     }
 }
 
-std::string http::HttpServer::Impl::get_ip()
+std::string http::HttpServer::Impl::get_ip() const noexcept
 {
     return server_socket.get_ip();
 }
 
-unsigned short http::HttpServer::Impl::get_port()
+unsigned short http::HttpServer::Impl::get_port() const noexcept
 {
     return server_socket.get_port();
 }
 
-void http::HttpConnection::log_info(const std::string &message)
+void http::HttpConnection::log_info(const std::string &message) const noexcept
 {
     try
     {
@@ -647,7 +647,7 @@ void http::HttpConnection::log_info(const std::string &message)
     }
 }
 
-void http::HttpConnection::log_warning(const std::string &message)
+void http::HttpConnection::log_warning(const std::string &message) const noexcept
 {
     try
     {
@@ -660,7 +660,7 @@ void http::HttpConnection::log_warning(const std::string &message)
     }
 }
 
-void http::HttpConnection::log_error(const std::string &message)
+void http::HttpConnection::log_error(const std::string &message) const noexcept
 {
     try
     {
@@ -673,7 +673,7 @@ void http::HttpConnection::log_error(const std::string &message)
     }
 }
 
-void http::HttpServer::Impl::log_info(const std::string &message)
+void http::HttpServer::Impl::log_info(const std::string &message) const noexcept
 {
     try
     {
@@ -686,7 +686,7 @@ void http::HttpServer::Impl::log_info(const std::string &message)
     }
 }
 
-void http::HttpServer::Impl::log_warning(const std::string &message)
+void http::HttpServer::Impl::log_warning(const std::string &message) const noexcept
 {
     try
     {
@@ -699,7 +699,7 @@ void http::HttpServer::Impl::log_warning(const std::string &message)
     }
 }
 
-void http::HttpServer::Impl::log_error(const std::string &message)
+void http::HttpServer::Impl::log_error(const std::string &message) const noexcept
 {
     try
     {
