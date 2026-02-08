@@ -1,3 +1,6 @@
+/// @file http_constants.hpp
+/// @brief This file contains constants for HTTP headers, methods, versions, and status codes.
+
 #ifndef HTTP_CONSTANTS_HPP
 #define HTTP_CONSTANTS_HPP
 
@@ -13,6 +16,7 @@ namespace http
         const std::string HOST = "host";
         const std::string EXPECT = "expect";
     }
+
     namespace methods
     {
         const std::string GET = "GET";
@@ -49,7 +53,6 @@ namespace http
         const int HEADERS_TOO_LARGE = 431;
         const int HTTP_VERSION_NOT_SUPPORTED = 505;
     }
-
 }
 
 #endif // HTTP_CONSTANTS_HPP
