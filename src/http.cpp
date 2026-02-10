@@ -345,10 +345,10 @@ void http::HttpConnection::read_request()
             else
             {
                 http::HttpRequestLine req_line = http::HttpRequestParser::parse_request_line(buffer, parser_cursor);
-                current_request.method = req_line.method;
-                current_request.uri = req_line.uri;
-                current_request.version = req_line.version;
-                if (current_request.version != http::versions::HTTP_1_1)
+                current_request._method = req_line.method;
+                current_request._uri = req_line.uri;
+                current_request._version = req_line.version;
+                if (current_request._version != http::versions::HTTP_1_1)
                 {
                     throw http::exceptions::VersionNotSupported{};
                 }
@@ -361,8 +361,8 @@ void http::HttpConnection::read_request()
         }
         if (current_request_status == request_status::HEADERS_DONE)
         {
-            current_request.headers = http::HttpRequestParser::parse_headers(buffer, parser_cursor);
-            for (auto &header : current_request.headers)
+            current_request._headers = http::HttpRequestParser::parse_headers(buffer, parser_cursor);
+            for (auto &header : current_request._headers)
             {
                 long content_length = http::HttpRequestParser::is_content_length_header(std::vector<char>(header.first.begin(), header.first.end()));
                 if (content_length != -1)
@@ -402,7 +402,7 @@ void http::HttpConnection::read_request()
         }
         if (current_request_status == request_status::REQUEST_READING_DONE)
         {
-            current_request.body = http::HttpRequestParser::parse_body(buffer, parser_cursor, current_request.headers);
+            current_request._body = http::HttpRequestParser::parse_body(buffer, parser_cursor, current_request._headers);
         }
     }
     catch (const http::exceptions::UnexpectedEndOfStream &e)
