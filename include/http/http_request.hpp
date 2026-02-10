@@ -13,6 +13,10 @@ namespace http
     class HttpRequest
     {
     private:
+        /// @brief The IP address of the client making the request.
+        std::string _ip;
+        /// @brief The port number from which the client is connecting.
+        std::string _port;
         ///@brief The HTTP method (e.g., GET, POST).
         std::string _method;
         /// @brief The requested URI (e.g., /index.html) It may also include query parameters , uri stored in the HttpRequest object is a URL encoded value.
@@ -41,6 +45,10 @@ namespace http
             : _method(method), _uri(uri), _version(version), _headers(headers), _body(body) {}
 
     public:
+        /// @return The IP address of the client making the request as a std::string.
+        const std::string &ip() const noexcept { return _ip; }
+        /// @return The port number from which the client is connecting as a std::string.
+        const std::string &port() const noexcept { return _port; }
         /// @return The HTTP method (e.g., GET, POST) as a std::string.
         const std::string &method() const noexcept { return _method; }
         /// @return The requested URI (e.g., /index.html) as a std::string. It is stored as a URL encoded value.

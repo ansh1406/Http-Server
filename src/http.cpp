@@ -330,6 +330,8 @@ void http::HttpConnection::read_request()
         read_from_client();
         if (current_request_status == request_status::CONNECTION_ESTABLISHED)
         {
+            current_request._ip = get_ip();
+            current_request._port = std::to_string(get_port());
             current_request_status = request_status::READING_REQUEST_LINE;
         }
         if (current_request_status == request_status::READING_REQUEST_LINE)
