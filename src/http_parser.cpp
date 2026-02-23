@@ -7,7 +7,7 @@
 
 #include <cctype>
 
-http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vector<char> &raw_request, size_t &pos)
+http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<char> &raw_request, size_t &pos)
 {
     http::HttpRequestLine request_line;
     size_t start = pos;
@@ -40,7 +40,7 @@ http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vec
     return request_line;
 }
 
-std::map<std::string, std::string> http::HttpRequestParser::parse_headers(const std::vector<char> &raw_request, size_t &pos)
+std::map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t &pos)
 {
     std::map<std::string, std::string> headers;
     while (pos < raw_request.size())
@@ -79,7 +79,7 @@ std::map<std::string, std::string> http::HttpRequestParser::parse_headers(const 
     return headers;
 }
 
-std::vector<char> http::HttpRequestParser::parse_body(const std::vector<char> &raw_request, size_t &pos, const std::map<std::string, std::string> &headers)
+std::vector<char> http::HttpParser::parse_body(const std::vector<char> &raw_request, size_t &pos, const std::map<std::string, std::string> &headers)
 {
     std::vector<char> body;
     auto it = headers.find(http::headers::CONTENT_LENGTH);
@@ -114,58 +114,19 @@ std::vector<char> http::HttpRequestParser::parse_body(const std::vector<char> &r
     return body;
 }
 
-std::string http::HttpRequestParser::path_from_uri(const std::string &uri)
-{
-    size_t query_pos = uri.find('?');
-    std::string path;
-    if (query_pos != std::string::npos)
-    {
-        path = uri.substr(0, query_pos);
-    }
-    path = uri;
 
-    path.push_back('/');
-
-    std::vector<std::string> segments;
-    size_t start = 0;
-    size_t end = 0;
-    while ((end = path.find('/', start)) != std::string::npos)
-    {
-        std::string segment = path.substr(start, end - start);
-        if (segment == "..")
-        {
-            if (!segments.empty())
-            {
-                segments.pop_back();
-            }
-        }
-        else if (segment != "." && !segment.empty())
-        {
-            segments.push_back(segment);
-        }
-        start = end + 1;
-    }
-
-    std::string normalized_path;
-    for (const auto &segment : segments)
-    {
-        normalized_path += "/" + segment;
-    }
-    return normalized_path.empty() ? "/" : normalized_path;
-}
-
-bool http::HttpRequestParser::validate_request_line(const std::vector<char> &buffer)
+bool http::HttpParser::validate_request_line(const std::vector<char> &request_line_byte_buffer)
 {
     // Method SP Request-URI SP HTTP-Version CRLF
     // SP count should be 2 in a valid request line
     int space_count = 0;
-    for (long pos = 0; pos < (long)buffer.size(); pos++)
+    for (long pos = 0; pos < (long)request_line_byte_buffer.size(); pos++)
     {
-        if (buffer[pos] == ' ')
+        if (request_line_byte_buffer[pos] == ' ')
         {
             ++space_count;
         }
-        if( buffer[pos] == '\r' && buffer[pos + 1] == '\n')
+        if (request_line_byte_buffer[pos] == '\r' && request_line_byte_buffer[pos + 1] == '\n')
         {
             break;
         }
@@ -173,9 +134,9 @@ bool http::HttpRequestParser::validate_request_line(const std::vector<char> &buf
     return space_count == 2;
 }
 
-bool http::HttpRequestParser::is_transfer_encoding_chunked_header(const std::vector<char> &header)
+bool http::HttpParser::is_transfer_encoding_chunked_header(const std::vector<char> &header_byte_buffer)
 {
-    std::string header_line(header.begin(), header.end());
+    std::string header_line(header_byte_buffer.begin(), header_byte_buffer.end());
     size_t colon_pos = header_line.find(':');
     if (colon_pos == std::string::npos)
     {
@@ -209,9 +170,9 @@ bool http::HttpRequestParser::is_transfer_encoding_chunked_header(const std::vec
     return false;
 }
 
-long http::HttpRequestParser::is_content_length_header(const std::vector<char> &header)
+long http::HttpParser::is_content_length_header(const std::vector<char> &header_byte_buffer)
 {
-    std::string header_line(header.begin(), header.end());
+    std::string header_line(header_byte_buffer.begin(), header_byte_buffer.end());
     size_t colon_pos = header_line.find(':');
     if (colon_pos == std::string::npos)
     {
@@ -234,14 +195,15 @@ long http::HttpRequestParser::is_content_length_header(const std::vector<char> &
             }
             return content_length;
         }
-        catch(...){
+        catch (...)
+        {
             throw http::exceptions::InvalidContentLength();
         }
     }
     return -1;
 }
 
-std::vector<char> http::HttpRequestParser::create_response_buffer(const http::HttpResponse &response)
+std::vector<char> http::HttpParser::create_response_buffer(const http::HttpResponse &response)
 {
     std::vector<char> buffer;
     std::string status_line = response.version() + " " + std::to_string(response.status_code()) + " " + response.status_message() + "\r\n";
