@@ -54,7 +54,6 @@ namespace http
         bool enable_logging = false;
         bool external_logging = false;
     };
-    class HttpConnection;
 
     /// @brief A simple HTTP server.
     class HttpServer

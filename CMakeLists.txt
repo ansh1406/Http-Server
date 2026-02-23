@@ -17,7 +17,6 @@ set_property(CACHE BUILD_LIBRARY_TYPE PROPERTY STRINGS SHARED STATIC)
 add_library(http_objects OBJECT ${SRC_FILES})
 target_include_directories(http_objects PUBLIC "${INCLUDE_DIR}")
 set_target_properties(http_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_options(http_objects PRIVATE -O2)
 
 add_library(http ${BUILD_LIBRARY_TYPE} $<TARGET_OBJECTS:http_objects>)
 

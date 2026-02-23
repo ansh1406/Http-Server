@@ -93,7 +93,7 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
         {
             pimpl->log_error(std::string("Error opening server socket: ") + e.what());
         }
-        throw http::exceptions::CanNotCreateServer();
+        throw http::exceptions::CanNotCreateServer(std::string(e.what()));
     }
     catch (const std::exception &e)
     {
@@ -101,7 +101,7 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
         {
             pimpl->log_error(std::string("Error creating server: ") + e.what());
         }
-        throw http::exceptions::CanNotCreateServer();
+        throw http::exceptions::CanNotCreateServer(std::string(e.what()));
     }
     catch (...)
     {
