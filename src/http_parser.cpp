@@ -154,18 +154,18 @@ std::string http::HttpParser::path_from_uri(const std::string &uri)
     return normalized_path.empty() ? "/" : normalized_path;
 }
 
-bool http::HttpParser::validate_request_line(const std::vector<char> &buffer)
+bool http::HttpParser::validate_request_line(const std::vector<char> &request_line_byte_buffer)
 {
     // Method SP Request-URI SP HTTP-Version CRLF
     // SP count should be 2 in a valid request line
     int space_count = 0;
-    for (long pos = 0; pos < (long)buffer.size(); pos++)
+    for (long pos = 0; pos < (long)request_line_byte_buffer.size(); pos++)
     {
-        if (buffer[pos] == ' ')
+        if (request_line_byte_buffer[pos] == ' ')
         {
             ++space_count;
         }
-        if( buffer[pos] == '\r' && buffer[pos + 1] == '\n')
+        if (request_line_byte_buffer[pos] == '\r' && request_line_byte_buffer[pos + 1] == '\n')
         {
             break;
         }
@@ -173,9 +173,9 @@ bool http::HttpParser::validate_request_line(const std::vector<char> &buffer)
     return space_count == 2;
 }
 
-bool http::HttpParser::is_transfer_encoding_chunked_header(const std::vector<char> &header)
+bool http::HttpParser::is_transfer_encoding_chunked_header(const std::vector<char> &header_byte_buffer)
 {
-    std::string header_line(header.begin(), header.end());
+    std::string header_line(header_byte_buffer.begin(), header_byte_buffer.end());
     size_t colon_pos = header_line.find(':');
     if (colon_pos == std::string::npos)
     {
@@ -209,9 +209,9 @@ bool http::HttpParser::is_transfer_encoding_chunked_header(const std::vector<cha
     return false;
 }
 
-long http::HttpParser::is_content_length_header(const std::vector<char> &header)
+long http::HttpParser::is_content_length_header(const std::vector<char> &header_byte_buffer)
 {
-    std::string header_line(header.begin(), header.end());
+    std::string header_line(header_byte_buffer.begin(), header_byte_buffer.end());
     size_t colon_pos = header_line.find(':');
     if (colon_pos == std::string::npos)
     {
@@ -234,7 +234,8 @@ long http::HttpParser::is_content_length_header(const std::vector<char> &header)
             }
             return content_length;
         }
-        catch(...){
+        catch (...)
+        {
             throw http::exceptions::InvalidContentLength();
         }
     }
