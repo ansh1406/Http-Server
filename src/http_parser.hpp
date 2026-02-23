@@ -14,7 +14,6 @@ namespace http
         std::string version;
     };
 
-    class HttpRequest;
     class HttpResponse;
 
     /// @brief Wrapper class for parsing methdos.
