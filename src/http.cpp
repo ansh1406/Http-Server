@@ -298,7 +298,7 @@ void http::HttpConnection::send_response()
         {
             buffer.clear();
             buffer_cursor = 0;
-            buffer = http::HttpRequestParser::create_response_buffer(current_response);
+            buffer = http::HttpParser::create_response_buffer(current_response);
             current_request_status = request_status::SENDING_RESPONSE;
         }
         int sent_bytes = client_socket.send_data(buffer, buffer_cursor);
@@ -340,13 +340,13 @@ void http::HttpConnection::read_request()
         }
         if (current_request_status == request_status::REQUEST_LINE_DONE)
         {
-            if (!http::HttpRequestParser::validate_request_line(buffer))
+            if (!http::HttpParser::validate_request_line(buffer))
             {
                 throw http::exceptions::InvalidRequestLine();
             }
             else
             {
-                http::HttpRequestLine req_line = http::HttpRequestParser::parse_request_line(buffer, parser_cursor);
+                http::HttpRequestLine req_line = http::HttpParser::parse_request_line(buffer, parser_cursor);
                 current_request._method = req_line.method;
                 current_request._uri = req_line.uri;
                 current_request._version = req_line.version;
@@ -363,10 +363,10 @@ void http::HttpConnection::read_request()
         }
         if (current_request_status == request_status::HEADERS_DONE)
         {
-            current_request._headers = http::HttpRequestParser::parse_headers(buffer, parser_cursor);
+            current_request._headers = http::HttpParser::parse_headers(buffer, parser_cursor);
             for (auto &header : current_request._headers)
             {
-                long content_length = http::HttpRequestParser::is_content_length_header(std::vector<char>(header.first.begin(), header.first.end()));
+                long content_length = http::HttpParser::is_content_length_header(std::vector<char>(header.first.begin(), header.first.end()));
                 if (content_length != -1)
                 {
                     if (body_size != -1)
@@ -375,7 +375,7 @@ void http::HttpConnection::read_request()
                     current_request_status = request_status::READING_BODY;
                     break;
                 }
-                if (http::HttpRequestParser::is_transfer_encoding_chunked_header(std::vector<char>(header.first.begin(), header.first.end())))
+                if (http::HttpParser::is_transfer_encoding_chunked_header(std::vector<char>(header.first.begin(), header.first.end())))
                 {
                     has_chunked_body = true;
                     current_request_status = request_status::READING_BODY;
@@ -404,7 +404,7 @@ void http::HttpConnection::read_request()
         }
         if (current_request_status == request_status::REQUEST_READING_DONE)
         {
-            current_request._body = http::HttpRequestParser::parse_body(buffer, parser_cursor, current_request._headers);
+            current_request._body = http::HttpParser::parse_body(buffer, parser_cursor, current_request._headers);
         }
     }
     catch (const http::exceptions::UnexpectedEndOfStream &e)

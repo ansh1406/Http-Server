@@ -7,7 +7,7 @@
 
 #include <cctype>
 
-http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vector<char> &raw_request, size_t &pos)
+http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<char> &raw_request, size_t &pos)
 {
     http::HttpRequestLine request_line;
     size_t start = pos;
@@ -40,7 +40,7 @@ http::HttpRequestLine http::HttpRequestParser::parse_request_line(const std::vec
     return request_line;
 }
 
-std::map<std::string, std::string> http::HttpRequestParser::parse_headers(const std::vector<char> &raw_request, size_t &pos)
+std::map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t &pos)
 {
     std::map<std::string, std::string> headers;
     while (pos < raw_request.size())
@@ -79,7 +79,7 @@ std::map<std::string, std::string> http::HttpRequestParser::parse_headers(const 
     return headers;
 }
 
-std::vector<char> http::HttpRequestParser::parse_body(const std::vector<char> &raw_request, size_t &pos, const std::map<std::string, std::string> &headers)
+std::vector<char> http::HttpParser::parse_body(const std::vector<char> &raw_request, size_t &pos, const std::map<std::string, std::string> &headers)
 {
     std::vector<char> body;
     auto it = headers.find(http::headers::CONTENT_LENGTH);
@@ -114,7 +114,7 @@ std::vector<char> http::HttpRequestParser::parse_body(const std::vector<char> &r
     return body;
 }
 
-std::string http::HttpRequestParser::path_from_uri(const std::string &uri)
+std::string http::HttpParser::path_from_uri(const std::string &uri)
 {
     size_t query_pos = uri.find('?');
     std::string path;
@@ -154,7 +154,7 @@ std::string http::HttpRequestParser::path_from_uri(const std::string &uri)
     return normalized_path.empty() ? "/" : normalized_path;
 }
 
-bool http::HttpRequestParser::validate_request_line(const std::vector<char> &buffer)
+bool http::HttpParser::validate_request_line(const std::vector<char> &buffer)
 {
     // Method SP Request-URI SP HTTP-Version CRLF
     // SP count should be 2 in a valid request line
@@ -173,7 +173,7 @@ bool http::HttpRequestParser::validate_request_line(const std::vector<char> &buf
     return space_count == 2;
 }
 
-bool http::HttpRequestParser::is_transfer_encoding_chunked_header(const std::vector<char> &header)
+bool http::HttpParser::is_transfer_encoding_chunked_header(const std::vector<char> &header)
 {
     std::string header_line(header.begin(), header.end());
     size_t colon_pos = header_line.find(':');
@@ -209,7 +209,7 @@ bool http::HttpRequestParser::is_transfer_encoding_chunked_header(const std::vec
     return false;
 }
 
-long http::HttpRequestParser::is_content_length_header(const std::vector<char> &header)
+long http::HttpParser::is_content_length_header(const std::vector<char> &header)
 {
     std::string header_line(header.begin(), header.end());
     size_t colon_pos = header_line.find(':');
@@ -241,7 +241,7 @@ long http::HttpRequestParser::is_content_length_header(const std::vector<char> &
     return -1;
 }
 
-std::vector<char> http::HttpRequestParser::create_response_buffer(const http::HttpResponse &response)
+std::vector<char> http::HttpParser::create_response_buffer(const http::HttpResponse &response)
 {
     std::vector<char> buffer;
     std::string status_line = response.version() + " " + std::to_string(response.status_code()) + " " + response.status_message() + "\r\n";

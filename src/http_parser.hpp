@@ -18,7 +18,7 @@ namespace http
     class HttpResponse;
 
     /// @brief Wrapper class for parsing methdos.
-    class HttpRequestParser
+    class HttpParser
     {
     public:
         /// @brief Parses the request line from the raw HTTP request
