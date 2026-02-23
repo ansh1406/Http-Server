@@ -29,7 +29,7 @@ namespace http
         /// @brief Parses the headers from the raw HTTP request
         /// @param raw_request vector of chars representing the raw HTTP request.
         /// @param pos Starting position for parsing, will be updated to the position after the headers.
-        /// @return Returns a map of header key-value pairs.
+        /// @return Returns a map of header key-value pairs. All keys are converted to lowercase.
         static std::map<std::string, std::string> parse_headers(const std::vector<char> &raw_request, size_t &pos);
 
         /// @brief Parses the body from the raw HTTP request
