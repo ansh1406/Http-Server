@@ -1,3 +1,5 @@
+#ifdef __linux__
+
 #include "tcp.hpp"
 
 #include <sys/socket.h>
@@ -228,3 +230,5 @@ void tcp::SocketFD::close_fd()
         fd_ = constants::INVALID_SOCKET;
     }
 }
+
+#endif // __linux__
