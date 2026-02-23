@@ -1,19 +1,70 @@
 #include "tcp.hpp"
 
-#include <csignal>
-#include <cstring>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include <unistd.h>
 #include <fcntl.h>
 
-tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port, const unsigned int max_pending)
+#include <csignal>
+#include <cstring>
+#include <cerrno>
+
+tcp::ListeningSocket::ListeningSocket(const uint32_t ip, const tcp::Port port, const unsigned int max_pending)
 {
     max_pending_connections = max_pending;
     try
     {
         signal(SIGPIPE, SIG_IGN);
-        address = create_address(ip, port);
-        socket_fd = create_socket();
-        bind_socket();
-        start_listening();
+
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = ip;
+        addr.sin_port = htons(port);
+
+        ip_ = std::string(inet_ntoa(addr.sin_addr));
+        port_ = port;
+
+        // create socket
+        SocketFD sock(::socket(AF_INET, SOCK_STREAM, 0));
+        if (sock.fd() < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotCreateSocket{std::string("TCP: ") + std::string(strerror(err))};
+        }
+
+        // set reuse addr
+        int optionValue = tcp::constants::OPTION_TRUE;
+        if (setsockopt(sock.fd(), SOL_SOCKET, SO_REUSEADDR, &optionValue, sizeof(int)) < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
+        }
+
+        int flags = fcntl(sock.fd(), F_GETFL, 0);
+        if (flags == -1)
+            flags = 0;
+        flags |= O_NONBLOCK;
+        if (fcntl(sock.fd(), F_SETFL, flags) < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
+        }
+
+        socket_fd = std::move(sock);
+
+        if (bind(socket_fd.fd(), reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotBindSocket{std::string("TCP: ") + std::string(strerror(err))};
+        }
+
+        if (listen(socket_fd.fd(), max_pending_connections) < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotListenOnSocket{std::string("TCP: ") + std::string(strerror(err))};
+        }
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {
@@ -37,58 +88,6 @@ tcp::ListeningSocket::ListeningSocket(const in_addr_t ip, const tcp::Port port, 
     }
 }
 
-tcp::SocketFD tcp::ListeningSocket::create_socket()
-{
-    SocketFD sock(socket(AF_INET, SOCK_STREAM, 0));
-    if (sock.fd() < 0)
-    {
-        int err = errno;
-        throw tcp::exceptions::CanNotCreateSocket{std::string("TCP: ") + std::string(strerror(err))};
-    }
-    int optionValue = tcp::constants::OPTION_TRUE;
-    if (setsockopt(sock.fd(), SOL_SOCKET, SO_REUSEADDR, &optionValue, sizeof(int)) < 0)
-    {
-        int err = errno;
-        throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
-    }
-    int flags = fcntl(sock.fd(), F_GETFL, 0);
-    if(flags == -1) flags = 0;
-    flags |= O_NONBLOCK;
-    if (fcntl(sock.fd(), F_SETFL, flags) < 0)
-    {
-        int err = errno;
-        throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
-    }
-    return sock;
-}
-
-sockaddr_in tcp::ListeningSocket::create_address(const in_addr_t ip, const tcp::Port port)
-{
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = ip;
-    addr.sin_port = htons(port);
-    return addr;
-}
-
-void tcp::ListeningSocket::bind_socket()
-{
-    if (bind(socket_fd.fd(), reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0)
-    {
-        int err = errno;
-        throw tcp::exceptions::CanNotBindSocket{std::string("TCP: ") + std::string(strerror(err))};
-    }
-}
-
-void tcp::ListeningSocket::start_listening()
-{
-    if (listen(socket_fd.fd(), max_pending_connections) < 0)
-    {
-        int err = errno;
-        throw tcp::exceptions::CanNotListenOnSocket{std::string("TCP: ") + std::string(strerror(err))};
-    }
-}
-
 std::vector<tcp::ConnectionSocket> tcp::ListeningSocket::accept_connections()
 {
     try
@@ -102,21 +101,24 @@ std::vector<tcp::ConnectionSocket> tcp::ListeningSocket::accept_connections()
             if (sock < 0)
             {
                 int err = errno;
-                if(err == EAGAIN || err == EWOULDBLOCK)
+                if (err == EAGAIN || err == EWOULDBLOCK)
                 {
                     break;
                 }
                 throw tcp::exceptions::CanNotAcceptConnection{std::string("TCP: ") + std::string(strerror(err))};
             }
             int flags = fcntl(sock, F_GETFL, 0);
-            if(flags == -1) flags = 0;
+            if (flags == -1)
+                flags = 0;
             flags |= O_NONBLOCK;
             if (fcntl(sock, F_SETFL, flags) < 0)
             {
                 int err = errno;
                 throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
             }
-            ConnectionSocket client_socket(sock, client_addr);
+            std::string client_ip = std::string(inet_ntoa(client_addr.sin_addr));
+            tcp::Port client_port = ntohs(client_addr.sin_port);
+            ConnectionSocket client_socket(sock, client_ip, client_port);
             connections.push_back(std::move(client_socket));
         }
         return connections;
@@ -187,7 +189,8 @@ std::vector<char> tcp::ConnectionSocket::receive_data()
                 remaining_space = buffer.size() - total_received;
             }
             long bytes_received = recv(socket_fd.fd(), buffer.data() + total_received, remaining_space, 0);
-            if(bytes_received == 0){
+            if (bytes_received == 0)
+            {
                 throw tcp::exceptions::CanNotReceiveData{"Connection closed by peer."};
             }
             if (bytes_received < 0)

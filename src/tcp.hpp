@@ -1,9 +1,5 @@
 #ifndef TCP_HPP
 #define TCP_HPP
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 
 #include <cstdint>
 #include <stdexcept>
@@ -20,7 +16,7 @@ namespace tcp
     {
         const SocketHandle INVALID_SOCKET = -1;
         const int SOCKET_ERROR = -1;
-        const in_addr_t DEFAULT_ADDRESS = INADDR_ANY;
+        const uint32_t DEFAULT_ADDRESS = 0; // 0 means INADDR_ANY 0.0.0.0
         const int BACKLOG = 10;
         const size_t BUFFER_EXPANTION_SIZE = 4096;
         const int OPTION_TRUE = 1;
@@ -114,10 +110,11 @@ namespace tcp
     {
     private:
         SocketFD socket_fd;
-        sockaddr_in address;
+        std::string ip_;
+        Port port_;
 
     public:
-        explicit ConnectionSocket(const SocketHandle handle, const sockaddr_in &addr) noexcept : socket_fd(handle), address(addr) {}
+        explicit ConnectionSocket(const SocketHandle handle, const std::string &ip, const Port port) noexcept : socket_fd(handle), ip_(ip), port_(port) {}
 
         ConnectionSocket(ConnectionSocket &&) = default;
         ConnectionSocket &operator=(ConnectionSocket &&) = default;
@@ -135,13 +132,13 @@ namespace tcp
         /// @return IP address of the connected peer as a string
         std::string get_ip() const
         {
-            return std::string(inet_ntoa(address.sin_addr));
+            return ip_;
         }
 
         /// @return Port number of the connected peer
         Port get_port() const noexcept
         {
-            return ntohs(address.sin_port);
+            return port_;
         }
     };
 
@@ -149,16 +146,13 @@ namespace tcp
     class ListeningSocket
     {
     private:
-        sockaddr_in address;
-        sockaddr_in create_address(const in_addr_t ip, const Port port);
-        SocketFD create_socket();
-        void bind_socket();
-        void start_listening();
         SocketFD socket_fd;
         unsigned int max_pending_connections;
+        std::string ip_;
+        Port port_;
 
     public:
-        ListeningSocket(const in_addr_t ip, const Port port, const unsigned int max_pending);
+        ListeningSocket(const uint32_t ip, const Port port, const unsigned int max_pending);
         explicit ListeningSocket(const Port port, const unsigned int max_pending) : ListeningSocket(constants::DEFAULT_ADDRESS, port, max_pending) {}
         explicit ListeningSocket(const Port port) : ListeningSocket(constants::DEFAULT_ADDRESS, port, constants::BACKLOG) {}
 
@@ -179,13 +173,13 @@ namespace tcp
         /// @return IP address the socket is bound to as a string
         std::string get_ip() const
         {
-            return std::string(inet_ntoa(address.sin_addr));
+            return ip_;
         }
 
         /// @return Port number the socket is bound to
         Port get_port() const noexcept
         {
-            return ntohs(address.sin_port);
+            return port_;
         }
     };
 
