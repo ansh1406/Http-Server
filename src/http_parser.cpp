@@ -114,45 +114,6 @@ std::vector<char> http::HttpParser::parse_body(const std::vector<char> &raw_requ
     return body;
 }
 
-std::string http::HttpParser::path_from_uri(const std::string &uri)
-{
-    size_t query_pos = uri.find('?');
-    std::string path;
-    if (query_pos != std::string::npos)
-    {
-        path = uri.substr(0, query_pos);
-    }
-    path = uri;
-
-    path.push_back('/');
-
-    std::vector<std::string> segments;
-    size_t start = 0;
-    size_t end = 0;
-    while ((end = path.find('/', start)) != std::string::npos)
-    {
-        std::string segment = path.substr(start, end - start);
-        if (segment == "..")
-        {
-            if (!segments.empty())
-            {
-                segments.pop_back();
-            }
-        }
-        else if (segment != "." && !segment.empty())
-        {
-            segments.push_back(segment);
-        }
-        start = end + 1;
-    }
-
-    std::string normalized_path;
-    for (const auto &segment : segments)
-    {
-        normalized_path += "/" + segment;
-    }
-    return normalized_path.empty() ? "/" : normalized_path;
-}
 
 bool http::HttpParser::validate_request_line(const std::vector<char> &request_line_byte_buffer)
 {

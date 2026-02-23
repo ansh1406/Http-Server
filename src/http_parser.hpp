@@ -40,9 +40,6 @@ namespace http
         /// @return Returns a vector of chars representing the body.
         static std::vector<char> parse_body(const std::vector<char> &raw_request, size_t &pos, const std::map<std::string, std::string> &headers);
 
-        /// @brief Extracts the path from a given URI.
-        static std::string path_from_uri(const std::string &uri);
-
         /// @brief Validates the request line format.
         static bool validate_request_line(const std::vector<char> &request_line_byte_buffer);
 
