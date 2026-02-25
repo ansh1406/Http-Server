@@ -250,6 +250,11 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
             if (request_handler)
                 request_handler(current_request, current_response);
 
+            current_response.add_header("Connection", "close");
+
+            if (peer_is_writable())
+                send_response();
+
             if (peer_is_writable())
                 send_response();
         }
