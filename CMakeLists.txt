@@ -19,9 +19,9 @@ set_property(CACHE BUILD_LIBRARY_TYPE PROPERTY STRINGS SHARED STATIC)
 # Create an object library for the source files
 add_library(http_objects OBJECT ${SRC_FILES})
 target_include_directories(http_objects
-	PUBLIC
-	$<BUILD_INTERFACE:${INCLUDE_DIR}>
-	$<INSTALL_INTERFACE:include>
+    PUBLIC
+    $<BUILD_INTERFACE:${INCLUDE_DIR}>
+    $<INSTALL_INTERFACE:include>
 )
 target_compile_features(http_objects PUBLIC cxx_std_11)
 set_target_properties(http_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -35,3 +35,25 @@ target_include_directories(http
 )
 target_compile_features(http PUBLIC cxx_std_11)
 set_target_properties(http PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# Install the library and headers
+include(GNUInstallDirs)
+install(TARGETS http
+    EXPORT http-targets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+install(DIRECTORY ${INCLUDE_DIR}/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+install(EXPORT http-targets
+    FILE httpTargets.cmake
+    NAMESPACE Http::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/http
+)
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/httpConfigVersion.cmake"
+    VERSION 4.2.0
+    COMPATIBILITY AnyNewerVersion
+)
