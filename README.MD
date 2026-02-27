@@ -14,59 +14,6 @@ Http-Server is a C++ library designed to facilitate the creation of HTTP servers
 - Automatic handling of connection timeouts and protocol level errors.
 - Automatic setting of Content-Length header for responses with a body.
 
-## Usage
-
-### Classes
-
-- `HttpServer`: The main class for creating and managing the HTTP server.
-- `HttpServerConfig`: A configuration class for setting up the server parameters such as port number, maximum connections, and timeout settings.
-- `HttpRequest`: Represents an incoming HTTP request, providing access to headers, body, and other request details.
-- `HttpResponse`: Represents an HTTP response that can be sent back to the client, allowing you to set status codes, headers, and body content.
-
-> Note: All public API functions and classes are declared under the `http` namespace. All functions are well documented in the include files.
-
-### How to use in your project
-
-To use the Http-Server library in your C++ project, follow these steps:
-
-1. Clone the repository and build the library.
-
-2. Add [include](include) folder to your project's include path. (If you are copying the header files directly into your project, you are suggested to copy the entire [http](include/http) folder to your project as it is to avoid any issues with the include paths.)
-
-3. Link against the compiled library when building your project.
-
-### Example
-
-Below is a simple example of how to create a basic HTTP server that responds with "Hello, World!" to any incoming request.
-
-```cpp
-#include "http/http.hpp"
-
-#include <vector>
-#include <string>
-
-int main() {
-  try
-  {
-    http::HttpServerConfig config;
-    config.port = 8080;
-
-    http::HttpServer server(config,[](http::HttpRequest &request, http::HttpResponse &response) {
-    response.set_status_code(200);
-    response.add_header("Content-Type", "text/plain");
-    std::string body = "Hello, World!";
-    response.set_body(std::vector<char>(body.begin(), body.end()));
-    });
-
-    server.start();
-  }
-  catch(const std::exception &e)
-  {
-    std::cerr << "Error: " << e.what() << std::endl;
-  }
-}
-```
-
 ## Build Instructions
 
 > [!WARNING]
@@ -113,3 +60,77 @@ We have provided 2 methods to build the library. You can choose either of them b
    then proceed with the instructions provided by the script.
 
 > This method is not recommended but can be used if you don't have CMake installed or prefer a simpler build process.
+
+## Installation
+
+If you have build using CMake, after building the library, you can install it to your system using the following command:
+
+```bash
+sudo make install
+```
+
+or if you want to install the library to a custom directory, you can specify the installation prefix during the CMake configuration step:
+
+```bash
+cmake -DCMAKE_INSTALL_PREFIX=/your/custom/path ..
+```
+
+## Usage
+
+### Classes
+
+- `HttpServer`: The main class for creating and managing the HTTP server.
+- `HttpServerConfig`: A configuration class for setting up the server parameters such as port number, maximum connections, and timeout settings.
+- `HttpRequest`: Represents an incoming HTTP request, providing access to headers, body, and other request details.
+- `HttpResponse`: Represents an HTTP response that can be sent back to the client, allowing you to set status codes, headers, and body content.
+
+> Note: All public API functions and classes are declared under the `http` namespace. All functions are well documented in the include files.
+
+### How to use in your project
+
+To use the Http-Server library in your C++ project, follow these steps:
+
+1. Clone the repository and build the library.
+
+2. Add [include](include) folder to your project's include path. (If you are copying the header files directly into your project, you are suggested to copy the entire [http](include/http) folder to your project as it is to avoid any issues with the include paths.)
+
+3. Link against the compiled library when building your project.
+
+4. If you are using CMake, you can add the following lines to your `CMakeLists.txt` to link against the Http-Server library:
+
+```cmake
+find_package(http REQUIRED)
+target_link_libraries(your_target_name PRIVATE http::http)
+```
+
+### Example
+
+Below is a simple example of how to create a basic HTTP server that responds with "Hello, World!" to any incoming request.
+
+```cpp
+#include "http/http.hpp"
+
+#include <vector>
+#include <string>
+
+int main() {
+  try
+  {
+    http::HttpServerConfig config;
+    config.port = 8080;
+
+    http::HttpServer server(config,[](http::HttpRequest &request, http::HttpResponse &response) {
+    response.set_status_code(200);
+    response.add_header("Content-Type", "text/plain");
+    std::string body = "Hello, World!";
+    response.set_body(std::vector<char>(body.begin(), body.end()));
+    });
+
+    server.start();
+  }
+  catch(const std::exception &e)
+  {
+    std::cerr << "Error: " << e.what() << std::endl;
+  }
+}
+```
