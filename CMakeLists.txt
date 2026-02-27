@@ -47,7 +47,7 @@ install(DIRECTORY ${INCLUDE_DIR}/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(EXPORT http-targets
     FILE httpTargets.cmake
-    NAMESPACE Http::
+    NAMESPACE http::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/http
 )
 
