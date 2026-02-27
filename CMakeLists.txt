@@ -52,8 +52,21 @@ install(EXPORT http-targets
 )
 
 include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+	"${CMAKE_CURRENT_SOURCE_DIR}/cmake/httpConfig.cmake.in"
+	"${CMAKE_CURRENT_BINARY_DIR}/httpConfig.cmake"
+	INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/http
+)
+
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/httpConfigVersion.cmake"
     VERSION 4.2.0
-    COMPATIBILITY AnyNewerVersion
+    COMPATIBILITY SameMinorVersion
+)
+
+install(FILES
+	"${CMAKE_CURRENT_BINARY_DIR}/httpConfig.cmake"
+	"${CMAKE_CURRENT_BINARY_DIR}/httpConfigVersion.cmake"
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/http
 )
