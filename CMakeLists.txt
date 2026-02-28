@@ -17,7 +17,7 @@ set(BUILD_LIBRARY_TYPE "STATIC" CACHE STRING "Library type to build: SHARED or S
 set_property(CACHE BUILD_LIBRARY_TYPE PROPERTY STRINGS SHARED STATIC)
 
 # Create the static or shared library from the object files
-add_library(http ${BUILD_LIBRARY_TYPE} $<TARGET_OBJECTS:http_objects>)
+add_library(http ${BUILD_LIBRARY_TYPE} ${SRC_FILES})
 target_include_directories(http
     PUBLIC
     $<BUILD_INTERFACE:${INCLUDE_DIR}>
