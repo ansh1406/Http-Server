@@ -254,9 +254,6 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
 
             if (peer_is_writable())
                 send_response();
-
-            if (peer_is_writable())
-                send_response();
         }
         if (current_request_status == request_status::SENDING_RESPONSE || current_request_status == request_status::SERVER_ERROR)
         {
