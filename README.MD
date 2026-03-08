@@ -124,6 +124,7 @@ int main() {
     response.add_header("Content-Type", "text/plain");
     std::string body = "Hello, World!";
     response.set_body(std::vector<char>(body.begin(), body.end()));
+    response.add_header("Content-Length", std::to_string(body.size()));
     });
 
     server.start();
