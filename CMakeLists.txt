@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(HttpServer LANGUAGES CXX)
+project(HttpServer LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,6 +11,10 @@ set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Gather all source files
 file(GLOB SRC_FILES "${SRC_DIR}/*.cpp")
+
+if(WIN32)
+    list(APPEND SRC_FILES "${SRC_DIR}/wepoll/wepoll.c")
+endif()
 
 # Define the library type (STATIC or SHARED)
 set(BUILD_LIBRARY_TYPE "STATIC" CACHE STRING "Library type to build: SHARED or STATIC")
