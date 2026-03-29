@@ -11,7 +11,7 @@ public:
     {
         INFO,
         WARNING,
-        ERROR
+        ERR
     };
 
     class CanNotInitializeLogger : public std::runtime_error
@@ -71,7 +71,7 @@ public:
             case LogLevel::WARNING:
                 level_str = "WARNING";
                 break;
-            case LogLevel::ERROR:
+            case LogLevel::ERR:
                 level_str = "ERROR";
                 break;
             }

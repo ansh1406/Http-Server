@@ -58,7 +58,7 @@ void initialize_logger(const bool external_logging)
             }
             catch (...)
             {
-                Logger::get_instance().log("Failed to set external logging. Reverting to console logging.", Logger::LogLevel::ERROR);
+                Logger::get_instance().log("Failed to set external logging. Reverting to console logging.", Logger::LogLevel::ERR);
             }
         }
     }
@@ -670,7 +670,7 @@ void http::HttpConnection::log_error(const std::string &message) const
     {
         if (!logger__running)
             return;
-        Logger::get_instance().log(std::string("[CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + message), Logger::LogLevel::ERROR);
+        Logger::get_instance().log(std::string("[CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + message), Logger::LogLevel::ERR);
     }
     catch (...)
     {
@@ -709,7 +709,7 @@ void http::HttpServer::Impl::log_error(const std::string &message) const
     {
         if (!logger__running)
             return;
-        Logger::get_instance().log(std::string("[SERVER] " + message), Logger::LogLevel::ERROR);
+        Logger::get_instance().log(std::string("[SERVER] " + message), Logger::LogLevel::ERR);
     }
     catch (...)
     {
