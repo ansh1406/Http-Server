@@ -27,6 +27,11 @@ target_include_directories(http
     $<BUILD_INTERFACE:${INCLUDE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
+
+if(WIN32)
+    target_link_libraries(http ws2_32)
+endif()
+
 target_compile_features(http PUBLIC cxx_std_11)
 set_target_properties(http PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -55,7 +60,7 @@ configure_package_config_file(
 
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/httpConfigVersion.cmake"
-    VERSION 4.2.3
+    VERSION 4.3.0
     COMPATIBILITY SameMinorVersion
 )
 
