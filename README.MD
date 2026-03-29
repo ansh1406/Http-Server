@@ -110,6 +110,7 @@ Below is a simple example of how to create a basic HTTP server that responds wit
 ```cpp
 #include "http/http.hpp"
 
+#include <iostream>
 #include <vector>
 #include <string>
 
