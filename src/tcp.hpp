@@ -14,7 +14,7 @@ namespace tcp
 
     namespace constants
     {
-        const SocketHandle INVALID_SOCKET = -1;
+        const SocketHandle INVALID_HANDLE = -1;
         const int SOCKET_ERROR = -1;
         const uint32_t DEFAULT_ADDRESS = 0; // 0 means INADDR_ANY 0.0.0.0
         const int BACKLOG = 10;
@@ -73,14 +73,14 @@ namespace tcp
         SocketHandle fd_;
 
     public:
-        explicit SocketFD(SocketHandle handle = constants::INVALID_SOCKET) noexcept : fd_(handle) {}
+        explicit SocketFD(SocketHandle handle = constants::INVALID_HANDLE) noexcept : fd_(handle) {}
 
         SocketFD(const SocketFD &) = delete;
         SocketFD &operator=(const SocketFD &) = delete;
 
         SocketFD(SocketFD &&other) noexcept : fd_(other.fd_)
         {
-            other.fd_ = constants::INVALID_SOCKET;
+            other.fd_ = constants::INVALID_HANDLE;
         }
         SocketFD &operator=(SocketFD &&other) noexcept
         {
@@ -88,7 +88,7 @@ namespace tcp
             {
                 close_fd();
                 fd_ = other.fd_;
-                other.fd_ = constants::INVALID_SOCKET;
+                other.fd_ = constants::INVALID_HANDLE;
             }
             return *this;
         }
@@ -99,7 +99,7 @@ namespace tcp
         }
 
         SocketHandle fd() const noexcept { return fd_; }
-        explicit operator bool() const noexcept { return fd_ != constants::INVALID_SOCKET; }
+        explicit operator bool() const noexcept { return fd_ != constants::INVALID_HANDLE; }
 
     private:
         void close_fd();

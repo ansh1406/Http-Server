@@ -224,10 +224,10 @@ std::vector<char> tcp::ConnectionSocket::receive_data()
 
 void tcp::SocketFD::close_fd()
 {
-    if (fd_ != constants::INVALID_SOCKET)
+    if (fd_ != constants::INVALID_HANDLE)
     {
         ::close(fd_);
-        fd_ = constants::INVALID_SOCKET;
+        fd_ = constants::INVALID_HANDLE;
     }
 }
 
