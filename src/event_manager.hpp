@@ -51,7 +51,6 @@ namespace tcp
 
     class EventManager
     {
-        int epoll_fd;
         std::unordered_map<int, int> status;
         int max_events;
         time_t timeout;

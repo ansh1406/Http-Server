@@ -8,6 +8,10 @@
 #include <cstring>
 #include <cerrno>
 
+namespace {
+    int epoll_fd;
+}
+
 namespace tcp
 {
     using Event = struct epoll_event;
@@ -22,21 +26,16 @@ namespace tcp
         }
     }
 
-    EventManager::EventManager(EventManager &&other) noexcept : epoll_fd(other.epoll_fd), status(std::move(other.status)), max_events(other.max_events), timeout(other.timeout)
-    {
-        other.epoll_fd = -1;
-    }
+    EventManager::EventManager(EventManager &&other) noexcept : status(std::move(other.status)), max_events(other.max_events), timeout(other.timeout) {}
 
     EventManager &EventManager::operator=(EventManager &&other) noexcept
     {
         if (this != &other)
         {
             close(epoll_fd);
-            epoll_fd = other.epoll_fd;
             status = std::move(other.status);
             max_events = other.max_events;
             timeout = other.timeout;
-            other.epoll_fd = -1;
         }
         return *this;
     }
