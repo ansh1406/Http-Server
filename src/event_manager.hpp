@@ -51,6 +51,9 @@ namespace tcp
 
     class EventManager
     {
+        struct Impl;
+        Impl *pimpl;
+        
         std::unordered_map<int, int> status;
         int max_events;
         time_t timeout;

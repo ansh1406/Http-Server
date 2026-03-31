@@ -8,34 +8,43 @@
 #include <cstring>
 #include <cerrno>
 
-namespace {
-    int epoll_fd;
-}
-
 namespace tcp
 {
     using Event = struct epoll_event;
 
+    struct EventManager::Impl
+    {
+        int epoll_fd;
+
+        Impl() : epoll_fd(-1) {}
+    };
+
     EventManager::EventManager(const int max_events, const time_t timeout) : max_events(max_events), timeout(timeout)
     {
-        epoll_fd = epoll_create1(0);
-        if (epoll_fd == -1)
+        pimpl = new Impl();
+        pimpl->epoll_fd = epoll_create1(0);
+        if (pimpl->epoll_fd == -1)
         {
             int error = errno;
             throw exceptions::CanNotCreateEventManager("Failed to create epoll instance: " + std::string(strerror(error)));
         }
     }
 
-    EventManager::EventManager(EventManager &&other) noexcept : status(std::move(other.status)), max_events(other.max_events), timeout(other.timeout) {}
+    EventManager::EventManager(EventManager &&other) noexcept : pimpl(other.pimpl), status(std::move(other.status)), max_events(other.max_events), timeout(other.timeout)
+    {
+        other.pimpl = nullptr;
+    }
 
     EventManager &EventManager::operator=(EventManager &&other) noexcept
     {
         if (this != &other)
         {
-            close(epoll_fd);
+            close(pimpl->epoll_fd);
+            pimpl->epoll_fd = other.pimpl->epoll_fd;
             status = std::move(other.status);
             max_events = other.max_events;
             timeout = other.timeout;
+            other.pimpl->epoll_fd = -1;
         }
         return *this;
     }
@@ -47,7 +56,7 @@ namespace tcp
             Event ev;
             ev.events = EPOLLIN | EPOLLET;
             ev.data.fd = fd;
-            if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
+            if (epoll_ctl(pimpl->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
             {
                 int error = errno;
                 throw exceptions::CanNotRegisterSocket("Failed to register socket: " + std::string(strerror(error)));
@@ -76,7 +85,7 @@ namespace tcp
             Event ev;
             ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
             ev.data.fd = id;
-            if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, id, &ev) == -1)
+            if (epoll_ctl(pimpl->epoll_fd, EPOLL_CTL_MOD, id, &ev) == -1)
             {
                 int error = errno;
                 throw exceptions::CanNotModifySocket("Failed to modify socket for write monitoring: " + std::string(strerror(error)));
@@ -100,7 +109,7 @@ namespace tcp
     {
         try
         {
-            if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, id, nullptr) == -1)
+            if (epoll_ctl(pimpl->epoll_fd, EPOLL_CTL_DEL, id, nullptr) == -1)
             {
                 int error = errno;
                 throw exceptions::CanNotRemoveSocket("Failed to remove socket: " + std::string(strerror(error)));
@@ -123,7 +132,11 @@ namespace tcp
 
     EventManager::~EventManager()
     {
-        close(epoll_fd);
+        if (pimpl)
+        {
+            close(pimpl->epoll_fd);
+        }
+        delete pimpl;
     }
 
     std::vector<int> EventManager::wait_for_events()
@@ -131,7 +144,7 @@ namespace tcp
         try
         {
             std::vector<Event> events(max_events);
-            int num_events = epoll_wait(epoll_fd, events.data(), max_events, timeout);
+            int num_events = epoll_wait(pimpl->epoll_fd, events.data(), max_events, timeout);
             if (num_events == -1)
             {
                 int error = errno;
