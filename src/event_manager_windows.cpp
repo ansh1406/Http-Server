@@ -7,8 +7,6 @@
 
 namespace
 {
-	HANDLE epoll_handle = nullptr;
-
 	std::string wsa_error_message(const std::string &prefix)
 	{
 		return prefix + std::to_string(WSAGetLastError());
@@ -17,39 +15,43 @@ namespace
 
 namespace tcp
 {
-	EventManager::EventManager(const int max_events, const time_t timeout) : epoll_fd(-1), max_events(max_events), timeout(timeout)
+
+	struct EventManager::Impl
 	{
+		HANDLE epoll_handle;
+
+		Impl() : epoll_handle(nullptr) {}
+	};
+
+	EventManager::EventManager(const int max_events, const time_t timeout) : max_events(max_events), timeout(timeout)
+	{
+		pimpl = new Impl();
 		HANDLE handle = epoll_create1(0);
 		if (handle == nullptr)
 		{
 			throw exceptions::CanNotCreateEventManager(wsa_error_message("Failed to create epoll instance: "));
 		}
-		epoll_handle = handle;
-
-		epoll_fd = 1;
+		pimpl->epoll_handle = handle;
 	}
 
 	EventManager::EventManager(EventManager &&other) noexcept
-		: epoll_fd(other.epoll_fd), status(std::move(other.status)), max_events(other.max_events), timeout(other.timeout)
+		: pimpl(other.pimpl), max_events(other.max_events), timeout(other.timeout)
 	{
-		other.epoll_fd = -1;
+		other.pimpl = nullptr;
 	}
 
 	EventManager &EventManager::operator=(EventManager &&other) noexcept
 	{
 		if (this != &other)
 		{
-			if (epoll_fd != -1)
-			{
-				epoll_close(epoll_handle);
-				epoll_handle = nullptr;
-			}
+			if (pimpl && pimpl->epoll_handle)
+				epoll_close(pimpl->epoll_handle);
 
-			epoll_fd = other.epoll_fd;
+			pimpl->epoll_handle = other.pimpl->epoll_handle;
 			status = std::move(other.status);
 			max_events = other.max_events;
 			timeout = other.timeout;
-			other.epoll_fd = -1;
+			other.pimpl->epoll_handle = nullptr;
 		}
 		return *this;
 	}
@@ -62,7 +64,7 @@ namespace tcp
 			ev.events = EPOLLIN;
 			ev.data.fd = fd;
 
-			if (epoll_ctl(epoll_handle, EPOLL_CTL_ADD, static_cast<SOCKET>(fd), &ev) != 0)
+			if (epoll_ctl(pimpl->epoll_handle, EPOLL_CTL_ADD, static_cast<SOCKET>(fd), &ev) != 0)
 			{
 				throw exceptions::CanNotRegisterSocket(wsa_error_message("Failed to register socket: "));
 			}
@@ -92,7 +94,7 @@ namespace tcp
 			ev.events = EPOLLIN | EPOLLOUT;
 			ev.data.fd = id;
 
-			if (epoll_ctl(epoll_handle, EPOLL_CTL_MOD, static_cast<SOCKET>(id), &ev) != 0)
+			if (epoll_ctl(pimpl->epoll_handle, EPOLL_CTL_MOD, static_cast<SOCKET>(id), &ev) != 0)
 			{
 				throw exceptions::CanNotModifySocket(wsa_error_message("Failed to modify socket for write monitoring: "));
 			}
@@ -115,7 +117,7 @@ namespace tcp
 	{
 		try
 		{
-			if (epoll_ctl(epoll_handle, EPOLL_CTL_DEL, static_cast<SOCKET>(id), nullptr) != 0)
+			if (epoll_ctl(pimpl->epoll_handle, EPOLL_CTL_DEL, static_cast<SOCKET>(id), nullptr) != 0)
 			{
 				throw exceptions::CanNotRemoveSocket(wsa_error_message("Failed to remove socket: "));
 			}
@@ -138,13 +140,13 @@ namespace tcp
 
 	EventManager::~EventManager()
 	{
-		if (epoll_fd == -1)
+		if (pimpl)
 		{
-			return;
+			if (pimpl->epoll_handle)
+				epoll_close(pimpl->epoll_handle);
 		}
 
-		epoll_close(epoll_handle);
-		epoll_handle = nullptr;
+		delete pimpl;
 	}
 
 	std::vector<int> EventManager::wait_for_events()
@@ -152,7 +154,7 @@ namespace tcp
 		try
 		{
 			std::vector<epoll_event> events(max_events);
-			int num_events = epoll_wait(epoll_handle, events.data(), max_events, static_cast<int>(timeout));
+			int num_events = epoll_wait(pimpl->epoll_handle, events.data(), max_events, static_cast<int>(timeout));
 			if (num_events == -1)
 			{
 				throw exceptions::CanNotWaitForEvents(wsa_error_message("Failed to wait for events: "));

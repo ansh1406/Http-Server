@@ -16,63 +16,42 @@ Http-Server is a C++ library designed to facilitate the creation of HTTP servers
 
 ## Build Instructions
 
-> [!WARNING]
-> The library is currently only supported on Posix complient linux systems.
-
-We have provided 2 methods to build the library. You can choose either of them based on your preference.
+You can build the library using either CMake (recommended) or the provided build script.
 
 ### Method 1: Using CMake
 
-1. Clone the repository:
-   ```bash
-   git clone "https://github.com/ansh1406/Http-Server.git"
-   ```
-2. Navigate to the project directory and create a build directory:
-   ```bash
-   cd Http-Server
-   mkdir build
-   cd build
-   ```
-3. Run CMake to configure the project and generate the build files:
-   ```bash
-   cmake ..
-   ```
-4. Build the library using the generated build files:
-   ```bash
-   cmake --build .
-   ```
-5. This will output `libhttp.so` or `libhttp.a` in the `build` directory according to the `BUILD_LIBRARY_TYPE` option in `CMakeLists.txt`. (This will also output object files as target `http_objects` regardless of any `BUILD_LIBRARY_TYPE` option. You can link against these object files instead of the library if needed.)
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+This outputs the `http` library in the `build` directory according to the `BUILD_LIBRARY_TYPE` option in `CMakeLists.txt` (for example, static or shared based on your platform and toolchain).
+It also outputs object files as target `http_objects` regardless of `BUILD_LIBRARY_TYPE`.
 
 ### Method 2: Using Bash Script
 
-1. Clone the repository:
+```bash
+sh ./build.sh --help
+```
 
-   ```bash
-   git clone "https://github.com/ansh1406/Http-Server.git"
+Then proceed with the options provided by the script.
 
-   ```
-
-2. Navigate to the project directory and run the build script:
-   ```bash
-   cd Http-Server
-   sh ./build.sh --help
-   ```
-   then proceed with the instructions provided by the script.
-
-> This method is not recommended but can be used if you don't have CMake installed or prefer a simpler build process.
+> This method can be used if you prefer a script-driven build.
 
 ## Installation
 
-If you have build using CMake, after building the library, you can install it to your system using the following command:
+If you built using CMake, install with:
 
 ```bash
-sudo make install
+cmake --install build
 ```
 
-or if you want to install the library to a custom directory, you can specify the installation prefix during the CMake configuration step:
+For a custom installation path:
 
 ```bash
-cmake -DCMAKE_INSTALL_PREFIX=/your/custom/path ..
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/your/custom/path
+cmake --build build
+cmake --install build
 ```
 
 ## Usage
@@ -88,19 +67,19 @@ cmake -DCMAKE_INSTALL_PREFIX=/your/custom/path ..
 
 ### How to use in your project
 
-To use the Http-Server library in your C++ project, follow these steps:
+1. Build and install the library.
 
-1. Clone the repository and build the library.
-
-2. Add [include](include) folder to your project's include path. (If you are copying the header files directly into your project, you are suggested to copy the entire [http](include/http) folder to your project as it is to avoid any issues with the include paths.)
-
-3. Link against the compiled library when building your project.
-
-4. If you are using CMake, you can add the following lines to your `CMakeLists.txt` to link against the Http-Server library:
+2. Link the package with CMake:
 
 ```cmake
 find_package(http REQUIRED)
 target_link_libraries(your_target_name PRIVATE http::http)
+```
+
+3. Include headers in your source files:
+
+```cpp
+#include "http/http.hpp"
 ```
 
 ### Example
