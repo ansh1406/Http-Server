@@ -98,6 +98,7 @@ namespace http
                     read_more();
                     view = get_stream_view();
                     available_data_size = view.size;
+                    current_cursor = view.cursor;
                 }
 
                 if (current_cursor >= available_data_size)
