@@ -176,21 +176,21 @@ size_t tcp::ConnectionSocket::send_data(const std::vector<char> &data, size_t st
     }
 }
 
-std::vector<char> tcp::ConnectionSocket::receive_data()
+size_t tcp::ConnectionSocket::receive_data(std::vector<char> &buffer, size_t buffer_cursor, bool read_once)
 {
     try
     {
-        std::vector<char> buffer;
         size_t total_received = 0;
         while (true)
         {
-            int remaining_space = buffer.size() - total_received;
-            if (remaining_space < constants::BUFFER_EXPANTION_SIZE)
+            int remaining_space = (buffer.size() - buffer_cursor) - total_received;
+            if (remaining_space <= 0)
             {
-                buffer.resize(buffer.size() + constants::BUFFER_EXPANTION_SIZE);
-                remaining_space = buffer.size() - total_received;
+                break;
             }
-            long bytes_received = recv(socket_fd.fd(), buffer.data() + total_received, remaining_space, 0);
+
+            long bytes_received = recv(socket_fd.fd(), buffer.data() + buffer_cursor + total_received, remaining_space, 0);
+            
             if (bytes_received == 0)
             {
                 throw tcp::exceptions::CanNotReceiveData{"Connection closed by peer."};
@@ -208,9 +208,12 @@ std::vector<char> tcp::ConnectionSocket::receive_data()
                 }
             }
             total_received += bytes_received;
+            if(read_once)
+            {
+                break;
+            }
         }
-        buffer.resize(total_received);
-        return buffer;
+        return total_received;
     }
     catch (const std::exception &e)
     {

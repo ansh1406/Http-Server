@@ -18,7 +18,6 @@ namespace tcp
         const int SOCKET_ERROR = -1;
         const uint32_t DEFAULT_ADDRESS = 0; // 0 means INADDR_ANY 0.0.0.0
         const int BACKLOG = 10;
-        const size_t BUFFER_EXPANTION_SIZE = 4096;
         const int OPTION_TRUE = 1;
     }
 
@@ -127,7 +126,7 @@ namespace tcp
             return socket_fd.fd();
         }
         size_t send_data(const std::vector<char> &data, size_t start_pos);
-        std::vector<char> receive_data();
+        size_t receive_data(std::vector<char> &buffer , size_t buffer_cursor, bool read_once = false);
 
         /// @return IP address of the connected peer as a string
         std::string get_ip() const
