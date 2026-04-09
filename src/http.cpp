@@ -11,13 +11,15 @@
 #include "logger.hpp"
 
 #include <map>
+#include <cstring>
 
 namespace http
 {
     namespace sizes
     {
         const size_t MAX_REQUEST_LINE_SIZE = 8192; // 8 KB
-        const size_t MAX_HEADER_SIZE = 8192;       // 8 KB
+        const size_t MAX_HEADER_SIZE = 8192;
+        const size_t READ_BUFFER_SIZE = 8192;
     }
 }
 
@@ -335,6 +337,7 @@ void http::HttpConnection::read_request()
             current_request._ip = get_ip();
             current_request._port = std::to_string(get_port());
             current_request_status = request_status::READING_REQUEST_LINE;
+            buffer.resize(std::max(sizes::MAX_HEADER_SIZE, sizes::MAX_REQUEST_LINE_SIZE));
         }
         if (current_request_status == request_status::READING_REQUEST_LINE)
         {
@@ -356,6 +359,7 @@ void http::HttpConnection::read_request()
                 {
                     throw http::exceptions::VersionNotSupported{};
                 }
+
                 current_request_status = request_status::READING_HEADERS;
             }
         }
@@ -383,6 +387,7 @@ void http::HttpConnection::read_request()
                     current_request_status = request_status::READING_BODY;
                     break;
                 }
+                reposition_buffer();
             }
             if (body_size != -1 && has_chunked_body)
             {
@@ -489,7 +494,7 @@ void http::HttpConnection::read_request_line()
     {
         long pos = buffer_cursor;
         bool found_end_of_request_line{false};
-        for (; pos < (long)buffer.size() - 1; pos++)
+        for (; pos < buffer_size - 1; pos++)
         {
             if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
             {
@@ -520,7 +525,7 @@ void http::HttpConnection::read_headers()
         bool found_end_of_headers{false};
         static long last_header_end = 0;
         static long header_start = buffer_cursor;
-        for (; pos < (long)buffer.size() - 1; pos++)
+        for (; pos < buffer_size - 1; pos++)
         {
 
             if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
@@ -612,9 +617,9 @@ void http::HttpConnection::read_from_client()
 {
     try
     {
-        std::vector<char> temp_buffer;
-        temp_buffer = client_socket.receive_data();
-        buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
+        // While reading request body client socket will not be managed by epoll and there will be no need to empty the socket while reading.
+        bool read_once = current_request_status == request_status::READING_BODY;
+        buffer_size += client_socket.receive_data(buffer, buffer_cursor, read_once);
     }
     catch (const tcp::exceptions::CanNotReceiveData &e)
     {
@@ -626,6 +631,14 @@ void http::HttpConnection::read_from_client()
         current_request_status = request_status::CLIENT_ERROR;
         throw http::exceptions::UnexpectedEndOfStream();
     }
+}
+
+void http::HttpConnection::reposition_buffer()
+{
+    long remaining_data = buffer_size - buffer_cursor;
+    memcpy(buffer.data(), buffer.data() + buffer_cursor, remaining_data);
+    buffer_cursor = 0;
+    buffer_size = remaining_data;
 }
 
 std::string http::HttpServer::Impl::get_ip() const

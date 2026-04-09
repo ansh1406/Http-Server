@@ -46,6 +46,7 @@ namespace http
         time_t last_activity_time = 0;
         int current_request_status = request_status::CONNECTION_ESTABLISHED;
         long buffer_cursor = 0;
+        long buffer_size = 0;
         size_t parser_cursor = 0;
         int peer_status = connection_status::IDLE;
 
@@ -57,6 +58,8 @@ namespace http
         void log_info(const std::string &message) const;
         void log_warning(const std::string &message) const;
         void log_error(const std::string &message) const;
+
+        void reposition_buffer();
 
     public:
         /// @brief Construct a new Http Connection object
