@@ -125,6 +125,19 @@ namespace http
             }
         }
 
+        void flush()
+        {
+            while (true)
+            {
+                auto view = get_stream_view();
+                if (view.is_closed)
+                {
+                    break;
+                }
+                read_more();
+            }
+        }
+
         void set_stream_view_provider(ProviderFunction<StreamView> provider)
         {
             stream_view_provider = provider;
