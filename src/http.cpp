@@ -252,7 +252,7 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
             if (request_handler)
                 request_handler(current_request, current_response);
 
-            current_response.add_header("Connection", "close");
+            current_response.set_header("Connection", "close");
 
             if (peer_is_writable())
                 send_response();
@@ -636,9 +636,10 @@ void http::HttpConnection::read_from_client()
 void http::HttpConnection::reposition_buffer()
 {
     long remaining_data = buffer_size - buffer_cursor;
-    memcpy(buffer.data(), buffer.data() + buffer_cursor, remaining_data);
+    memmove(buffer.data(), buffer.data() + buffer_cursor, remaining_data);
     buffer_cursor = 0;
     buffer_size = remaining_data;
+    parser_cursor = 0;
 }
 
 std::string http::HttpServer::Impl::get_ip() const
