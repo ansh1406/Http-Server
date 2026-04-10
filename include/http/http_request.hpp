@@ -8,6 +8,8 @@
 #include <map>
 #include <vector>
 
+#include "http_body_stream.hpp"
+
 namespace http
 {
     class HttpRequest
@@ -25,8 +27,8 @@ namespace http
         std::string _version;
         /// @brief A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
         std::map<std::string, std::string> _headers;
-        /// @brief The body of the HTTP request, stored as a vector of bytes. It will be empty for requests that do not have a body.
-        std::vector<char> _body;
+        /// @brief The body of the HTTP request, stored as a stream of bytes. It will be empty for requests that do not have a body.
+        RequestBodyStream _body;
 
         /// @brief Default constructor for HttpRequest. Initializes an empty HTTP request.
         HttpRequest() = default;
@@ -36,12 +38,12 @@ namespace http
         /// @param uri The requested URI (e.g., /index.html). Do not decode the URI here. It should be stored as a URL encoded value.
         /// @param version The HTTP version (e.g., HTTP/1.1).
         /// @param headers A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
-        /// @param body The body of the HTTP request, stored as a vector of bytes. It will be empty for requests that do not have a body
+        /// @param body The body of the HTTP request, stored as a stream of bytes. It will be empty for requests that do not have a body.
         HttpRequest(const std::string &method,
                     const std::string &uri,
                     const std::string &version,
                     const std::map<std::string, std::string> &headers,
-                    const std::vector<char> &body)
+                    const RequestBodyStream &body)
             : _method(method), _uri(uri), _version(version), _headers(headers), _body(body) {}
 
     public:
@@ -57,8 +59,8 @@ namespace http
         const std::string &version() const noexcept { return _version; }
         /// @return The HTTP headers as a map of header key(std::string)-value(std::string) pairs.
         const std::map<std::string, std::string> &headers() const noexcept { return _headers; }
-        /// @return The body of the HTTP request as a vector of chars.
-        const std::vector<char> &body() const noexcept { return _body; }
+        /// @return The body of the HTTP request as a RequestBodyStream.
+        const RequestBodyStream &body() const noexcept { return _body; }
 
         friend class HttpConnection; // Allow HttpConnection to access private members of HttpRequest
     };
