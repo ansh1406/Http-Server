@@ -64,16 +64,16 @@ namespace http
         void set_status_code(int status_code) noexcept { _status_code = status_code; }
         /// @brief Sets the HTTP status message.
         void set_status_message(const std::string &status_message) { _status_message = status_message; }
-        /// @brief Adds or updates body of the HTTP response.
+        /// @brief Sets or updates the body of the HTTP response.
         /// @param body ResponseBodyStream representing the body content.
         void set_body_stream(const ResponseBodyStream &body) { _body = body; }
         /// @brief Sets the body of the HTTP response.
         /// @param data std::vector<char> representing the body content.
         void set_body(const std::vector<char> &data) { _body = ResponseBodyStream(data); }
-        /// @brief Adds or updates a header in the HTTP response.
+        /// @brief Sets or updates a header in the HTTP response.
         /// @param key Header key as a std::string.
         /// @param value Header value as a std::string.
-        void add_header(const std::string &key, const std::string &value) { _headers[key] = value; }
+        void set_header(const std::string &key, const std::string &value) { _headers[key] = value; }
     };
 }
 
