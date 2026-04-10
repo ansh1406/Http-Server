@@ -29,7 +29,10 @@ namespace http
 
     public:
         using WriterFunction = std::function<void(std::vector<char> &data)>;
+
         ResponseBodyStream(WriterFunction writer);
+        ResponseBodyStream(const std::vector<char> &data);
+
         ~ResponseBodyStream();
     };
 }
