@@ -28,7 +28,7 @@ namespace http
         Impl *pimpl;
 
     public:
-        using WriterFunction = std::function<void(std::vector<char> &data)>;
+        using WriterFunction = std::function<bool(std::vector<char> &data)>;
 
         ResponseBodyStream() = default;
         ResponseBodyStream(WriterFunction writer);
