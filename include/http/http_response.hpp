@@ -21,14 +21,18 @@ namespace http
             struct Impl;
             Impl *pimpl;
 
-        public:
-            using WriterFunction = std::function<bool(std::vector<char> &data)>;
-
             ResponseBodyStream() = default;
+
+        public:
+            using WriterFunction = std::function<long(std::vector<char> &data)>;
+
             ResponseBodyStream(WriterFunction writer);
             ResponseBodyStream(const std::vector<char> &data);
 
             ~ResponseBodyStream();
+
+            friend struct ResponseBodyStreamReader;
+            friend class HttpResponse;
         };
 
     private:
@@ -44,17 +48,6 @@ namespace http
         ResponseBodyStream _body;
 
     public:
-        /// @brief Constructor for HttpResponse with all parameters.
-        /// @param status_code The HTTP status code (e.g., 200, 404).
-        /// @param status_message The HTTP status message (e.g., "OK", "Not Found").
-        /// @param headers A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
-        /// @param body The body of the HTTP response, stored as a stream of bytes. It will be empty for responses that do not have a body.
-        HttpResponse(int status_code,
-                     const std::string &status_message,
-                     const std::map<std::string, std::string> &headers,
-                     const ResponseBodyStream &body)
-            : _version(versions::HTTP_1_1), _status_code(status_code), _status_message(status_message), _headers(headers), _body(body) {}
-
         /// @brief Default constructor for HttpResponse. Initializes an empty HTTP response with HTTP version set to HTTP/1.1. Verison is set to HTTP/1.1 by default and cannot be changed because of library constraints.
         HttpResponse() : _version(versions::HTTP_1_1) {}
 
@@ -73,8 +66,6 @@ namespace http
         const std::string &status_message() const noexcept { return _status_message; }
         /// @return HTTP headers as a map of Header key(std::string)-value(std::string) pairs.
         const std::map<std::string, std::string> &headers() const noexcept { return _headers; }
-        /// @return HTTP body as a ResponseBodyStream.
-        const ResponseBodyStream &body() const noexcept { return _body; }
 
         /// @brief Sets the HTTP status code.
         void set_status_code(int status_code) noexcept { _status_code = status_code; }
@@ -82,7 +73,7 @@ namespace http
         void set_status_message(const std::string &status_message) { _status_message = status_message; }
         /// @brief Sets or updates the body of the HTTP response.
         /// @param body ResponseBodyStream representing the body content.
-        void set_body_stream(const ResponseBodyStream &body) { _body = body; }
+        void set_body_stream(ResponseBodyStream &body) { _body = std::move(body); }
         /// @brief Sets the body of the HTTP response.
         /// @param data std::vector<char> representing the body content.
         void set_body(const std::vector<char> &data) { _body = ResponseBodyStream(data); }
