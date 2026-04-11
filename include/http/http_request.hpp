@@ -14,6 +14,22 @@ namespace http
 {
     class HttpRequest
     {
+    public:
+        struct RequestBodyStream
+        {
+        private:
+            struct Impl;
+            Impl *pimpl;
+
+        public:
+            RequestBodyStream();
+            ~RequestBodyStream();
+
+            bool has_more_data() const;
+            bool is_stream_closed() const;
+            size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0);
+        };
+
     private:
         /// @brief The IP address of the client making the request.
         std::string _ip;
