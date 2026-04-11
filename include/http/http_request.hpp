@@ -26,6 +26,8 @@ namespace http
             bool has_more_data() const;
             bool is_stream_closed() const;
             size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0);
+
+            friend struct RequestBodyStreamBuilder;
         };
 
     private:
