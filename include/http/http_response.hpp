@@ -15,12 +15,29 @@ namespace http
 {
     class HttpResponse
     {
+    public:
+        struct ResponseBodyStream
+        {
+        private:
+            struct Impl;
+            Impl *pimpl;
+
+        public:
+            using WriterFunction = std::function<bool(std::vector<char> &data)>;
+
+            ResponseBodyStream() = default;
+            ResponseBodyStream(WriterFunction writer);
+            ResponseBodyStream(const std::vector<char> &data);
+
+            ~ResponseBodyStream();
+        };
+
     private:
         /// @brief  The HTTP version (e.g., HTTP/1.1). It is set to HTTP/1.1 by default and cannot be changed because of library constraints.
         std::string _version;
         /// @brief The HTTP status code (e.g., 200, 404).
         int _status_code;
-        /// @brief The HTTP resaon phrase (e.g., "OK", "Not Found").
+        /// @brief The HTTP reason phrase (e.g., "OK", "Not Found").
         std::string _status_message;
         /// @brief A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
         std::map<std::string, std::string> _headers;

@@ -8,21 +8,7 @@ namespace http
 {
     
 
-    class ResponseBodyStream
-    {
-    private:
-        struct Impl;
-        Impl *pimpl;
-
-    public:
-        using WriterFunction = std::function<bool(std::vector<char> &data)>;
-
-        ResponseBodyStream() = default;
-        ResponseBodyStream(WriterFunction writer);
-        ResponseBodyStream(const std::vector<char> &data);
-
-        ~ResponseBodyStream();
-    };
+    
 }
 
 #endif // HTTP_BODY_STREAM_HPP
