@@ -19,15 +19,16 @@ namespace http
             struct Impl;
             Impl *pimpl;
 
-        public:
             RequestBodyStream();
             ~RequestBodyStream();
 
+        public:
             bool has_more_data() const;
             bool is_stream_closed() const;
             size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0);
 
             friend struct RequestBodyStreamBuilder;
+            friend class HttpRequest;
         };
 
     private:
@@ -59,8 +60,8 @@ namespace http
                     const std::string &uri,
                     const std::string &version,
                     const std::map<std::string, std::string> &headers,
-                    const RequestBodyStream &body)
-            : _method(method), _uri(uri), _version(version), _headers(headers), _body(body) {}
+                    RequestBodyStream &body)
+            : _method(method), _uri(uri), _version(version), _headers(headers), _body(std::move(body)) {}
 
     public:
         /// @return The IP address of the client making the request as a std::string.
