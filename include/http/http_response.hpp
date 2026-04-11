@@ -5,7 +5,6 @@
 #define HTTP_RESPONSE_HPP
 
 #include "http_constants.hpp"
-#include "http_body_stream.hpp"
 
 #include <string>
 #include <map>

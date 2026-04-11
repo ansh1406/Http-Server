@@ -8,8 +8,6 @@
 #include <map>
 #include <vector>
 
-#include "http_body_stream.hpp"
-
 namespace http
 {
     class HttpRequest
