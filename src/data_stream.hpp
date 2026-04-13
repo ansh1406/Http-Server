@@ -35,33 +35,36 @@ namespace http
 
         void read_more()
         {
-            if (!stream_updater)
-            {
-                throw StreamPipelineBroken(std::string("DataStream: Stream updater not registered!"));
-            }
             stream_updater();
         }
 
         StreamView get_stream_view() const
         {
-            if (!stream_view_provider)
-            {
-                throw StreamPipelineBroken(std::string("DataStream: Stream view provider not registered!"));
-            }
             return stream_view_provider();
         }
 
         void advance_cursor(size_t bytes)
         {
-            if (!cursor_advancer)
-            {
-                throw StreamPipelineBroken(std::string("DataStream: Cursor advancer not registered!"));
-            }
             cursor_advancer(bytes);
         }
 
     public:
-        DataStream() = default;
+        DataStream()
+        {
+            stream_updater = []()
+            {
+                // Default no-op updater
+            };
+            stream_view_provider = []() -> StreamView
+            {
+                // Default empty stream view
+                return StreamView{nullptr, 0, 0, true};
+            };
+            cursor_advancer = [](size_t)
+            {
+                // Default no-op cursor advancer
+            };
+        }
 
         DataStream(const DataStream &) = delete;
         DataStream &operator=(const DataStream &) = delete;
@@ -86,10 +89,12 @@ namespace http
             try
             {
                 auto view = get_stream_view();
+
                 if (view.is_closed)
                 {
-                    throw StreamPipelineBroken("DataStream: Attempted to read from a closed stream.");
+                    return 0;
                 }
+
                 size_t available_data_size = view.size;
                 size_t current_cursor = view.cursor;
 
@@ -106,11 +111,13 @@ namespace http
                     return 0; // No more data available after provider read
                 }
 
-                size_t bytes_to_read = std::min(buffer.size() - buffer_cursor, available_data_size - current_cursor);
-                if (bytes_to_read < 0)
+                if (buffer_cursor >= buffer.size())
                 {
-                    throw std::overflow_error("DataStream: Buffer overflow detected while reading data.");
+                    throw std::out_of_range("DataStream: Buffer cursor is out of bounds.");
                 }
+
+                size_t bytes_to_read = std::min(buffer.size() - buffer_cursor, available_data_size - current_cursor);
+
                 std::memcpy(buffer.data() + buffer_cursor, view.data + current_cursor, bytes_to_read);
                 advance_cursor(bytes_to_read);
                 return bytes_to_read;
