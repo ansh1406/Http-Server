@@ -64,11 +64,7 @@ namespace http
     public:
         /// @brief Construct a new Http Connection object
         /// @param socket The TCP connection socket associated with this HTTP connection
-        explicit HttpConnection(tcp::ConnectionSocket &&socket)
-            : client_socket(std::move(socket))
-        {
-            last_activity_time = time(nullptr);
-        }
+        explicit HttpConnection(tcp::ConnectionSocket &&socket);
 
         HttpConnection(const HttpConnection &) = delete;
         HttpConnection &operator=(const HttpConnection &) = delete;

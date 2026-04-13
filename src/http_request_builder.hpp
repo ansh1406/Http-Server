@@ -8,9 +8,10 @@ namespace http
     class DataStream;
     struct HttpRequestBuilder
     {
-        static HttpRequest build(const std::string &ip,
-                                 const std::string &port);
+        static HttpRequest build();
 
+        static void set_ip(HttpRequest &request, const std::string &ip);
+        static void set_port(HttpRequest &request, const std::string &port);
         static void set_method(HttpRequest &request, const std::string &method);
         static void set_uri(HttpRequest &request, const std::string &uri);
         static void set_version(HttpRequest &request, const std::string &version);

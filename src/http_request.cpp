@@ -29,12 +29,19 @@ namespace http
         return pimpl->data_stream.is_stream_closed();
     }
 
-    HttpRequest HttpRequestBuilder::build(const std::string &ip, const std::string &port)
+    HttpRequest HttpRequestBuilder::build()
     {
-        HttpRequest request;
+        return HttpRequest();
+    }
+
+    void HttpRequestBuilder::set_ip(HttpRequest &request, const std::string &ip)
+    {
         request._ip = ip;
+    }
+
+    void HttpRequestBuilder::set_port(HttpRequest &request, const std::string &port)
+    {
         request._port = port;
-        return request;
     }
 
     void HttpRequestBuilder::set_method(HttpRequest &request, const std::string &method)
