@@ -20,15 +20,15 @@ namespace http
             Impl *pimpl;
 
             RequestBodyStream();
-            ~RequestBodyStream();
 
         public:
+            ~RequestBodyStream();
+
             bool has_more_data() const;
             bool is_stream_closed() const;
             size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0);
 
-            friend struct RequestBodyStreamBuilder;
-            friend class HttpRequest;
+            friend struct HttpRequestBuilder;
         };
 
     private:
@@ -47,39 +47,27 @@ namespace http
         /// @brief The body of the HTTP request, stored as a stream of bytes. It will be empty for requests that do not have a body.
         RequestBodyStream _body;
 
-        /// @brief Default constructor for HttpRequest. Initializes an empty HTTP request.
-        HttpRequest() = default;
-
-        /// @brief Parameterized constructor for HttpRequest. Initializes the HTTP request with the provided method, URI, version, headers, and body.
-        /// @param method The HTTP method (e.g., GET, POST).
-        /// @param uri The requested URI (e.g., /index.html). Do not decode the URI here. It should be stored as a URL encoded value.
-        /// @param version The HTTP version (e.g., HTTP/1.1).
-        /// @param headers A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
-        /// @param body The body of the HTTP request, stored as a stream of bytes. It will be empty for requests that do not have a body.
-        HttpRequest(const std::string &method,
-                    const std::string &uri,
-                    const std::string &version,
-                    const std::map<std::string, std::string> &headers,
-                    RequestBodyStream &body)
-            : _method(method), _uri(uri), _version(version), _headers(headers), _body(std::move(body)) {}
+        HttpRequest();
 
     public:
-        /// @return The IP address of the client making the request as a std::string.
-        const std::string &ip() const noexcept { return _ip; }
-        /// @return The port number from which the client is connecting as a std::string.
-        const std::string &port() const noexcept { return _port; }
-        /// @return The HTTP method (e.g., GET, POST) as a std::string.
-        const std::string &method() const noexcept { return _method; }
-        /// @return The requested URI (e.g., /index.html) as a std::string. It is stored as a URL encoded value.
-        const std::string &uri() const noexcept { return _uri; }
-        /// @return The HTTP version (e.g., HTTP/1.1) as a std::string.
-        const std::string &version() const noexcept { return _version; }
-        /// @return The HTTP headers as a map of header key(std::string)-value(std::string) pairs.
-        const std::map<std::string, std::string> &headers() const noexcept { return _headers; }
-        /// @return The body of the HTTP request as a RequestBodyStream.
-        const RequestBodyStream &body() const noexcept { return _body; }
+        ~HttpRequest() = default;
 
-        friend class HttpConnection; // Allow HttpConnection to access private members of HttpRequest
+        /// @return The IP address of the client making the request as a std::string.
+        const std::string &ip() const noexcept;
+        /// @return The port number from which the client is connecting as a std::string.
+        const std::string &port() const noexcept;
+        /// @return The HTTP method (e.g., GET, POST) as a std::string.
+        const std::string &method() const noexcept;
+        /// @return The requested URI (e.g., /index.html) as a std::string. It is stored as a URL encoded value.
+        const std::string &uri() const noexcept;
+        /// @return The HTTP version (e.g., HTTP/1.1) as a std::string.
+        const std::string &version() const noexcept;
+        /// @return The HTTP headers as a map of header key(std::string)-value(std::string) pairs.
+        const std::map<std::string, std::string> &headers() const noexcept;
+        /// @return The body of the HTTP request.
+        const RequestBodyStream &body() const noexcept;
+
+        friend class HttpRequestBuilder;
     };
 }
 
