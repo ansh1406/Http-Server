@@ -14,28 +14,10 @@ namespace http
 {
     class HttpResponse
     {
-    public:
-        struct ResponseBodyStream
-        {
-        private:
-            struct Impl;
-            Impl *pimpl;
-
-            ResponseBodyStream() = default;
-
-        public:
-            using WriterFunction = std::function<long(std::vector<char> &data)>;
-
-            ResponseBodyStream(WriterFunction writer);
-            ResponseBodyStream(const std::vector<char> &data);
-
-            ~ResponseBodyStream();
-
-            friend struct ResponseBodyStreamReader;
-            friend class HttpResponse;
-        };
-
     private:
+        struct Impl;
+        Impl *pimpl;
+
         /// @brief  The HTTP version (e.g., HTTP/1.1). It is set to HTTP/1.1 by default and cannot be changed because of library constraints.
         std::string _version;
         /// @brief The HTTP status code (e.g., 200, 404).
@@ -44,10 +26,10 @@ namespace http
         std::string _status_message;
         /// @brief A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
         std::map<std::string, std::string> _headers;
-        /// @brief The body of the HTTP response, stored as a stream of bytes. It will be empty for responses that do not have a body.
-        ResponseBodyStream _body;
 
     public:
+        using WriterFunction = std::function<long(std::vector<char> &data)>;
+
         /// @brief Default constructor for HttpResponse. Initializes an empty HTTP response with HTTP version set to HTTP/1.1. Verison is set to HTTP/1.1 by default and cannot be changed because of library constraints.
         HttpResponse() : _version(versions::HTTP_1_1) {}
 
@@ -73,14 +55,16 @@ namespace http
         void set_status_message(const std::string &status_message) { _status_message = status_message; }
         /// @brief Sets or updates the body of the HTTP response.
         /// @param body ResponseBodyStream representing the body content.
-        void set_body_stream(ResponseBodyStream &body) { _body = std::move(body); }
+        void set_body_generator(WriterFunction writer);
         /// @brief Sets the body of the HTTP response.
         /// @param data std::vector<char> representing the body content.
-        void set_body(const std::vector<char> &data) { _body = ResponseBodyStream(data); }
+        void set_body(const std::vector<char> &data);
         /// @brief Sets or updates a header in the HTTP response.
         /// @param key Header key as a std::string.
         /// @param value Header value as a std::string.
         void set_header(const std::string &key, const std::string &value) { _headers[key] = value; }
+
+        friend struct HttpResponseReader;
     };
 }
 

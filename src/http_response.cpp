@@ -1,6 +1,6 @@
 #include "http/http_response.hpp"
 
-#include "http_response_body_stream_reader.hpp"
+#include "http_response_reader.hpp"
 #include "data_stream.hpp"
 
 #include <vector>
@@ -9,7 +9,39 @@
 
 namespace http
 {
-    struct HttpResponse::ResponseBodyStream::Impl
+    struct HttpResponse::Impl
+    {
+        struct ResponseBodyStream
+        {
+        private:
+            struct Impl;
+            Impl *pimpl;
+
+            ResponseBodyStream() = default;
+
+        public:
+            ResponseBodyStream(WriterFunction writer);
+            ResponseBodyStream(const std::vector<char> &data);
+
+            ~ResponseBodyStream();
+
+            friend struct HttpResponseReader;
+        };
+
+        ResponseBodyStream body_stream;
+    };
+
+    void HttpResponse::set_body_generator(WriterFunction writer)
+    {
+        pimpl->body_stream = Impl::ResponseBodyStream(writer);
+    }
+
+    void HttpResponse::set_body(const std::vector<char> &data)
+    {
+        pimpl->body_stream = Impl::ResponseBodyStream(data);
+    }
+
+    struct HttpResponse::Impl::ResponseBodyStream::Impl
     {
         DataStream data_stream;
 
@@ -21,7 +53,7 @@ namespace http
         bool is_stream_closed = false;
     };
 
-    HttpResponse::ResponseBodyStream::ResponseBodyStream(WriterFunction writer)
+    HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(WriterFunction writer)
     {
         pimpl = new Impl();
         pimpl->data_stream.set_stream_updater(
@@ -59,7 +91,7 @@ namespace http
             });
     }
 
-    HttpResponse::ResponseBodyStream::ResponseBodyStream(const std::vector<char> &data)
+    HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(const std::vector<char> &data)
     {
         size_t bytes_left = data.size();
         WriterFunction writer = [data, bytes_left](std::vector<char> &buffer) mutable -> long
@@ -77,17 +109,17 @@ namespace http
         ResponseBodyStream(writer);
     }
 
-    HttpResponse::ResponseBodyStream::~ResponseBodyStream()
+    HttpResponse::Impl::ResponseBodyStream::~ResponseBodyStream()
     {
         delete pimpl;
     }
 
-    long ResponseBodyStreamReader::read(const HttpResponse::ResponseBodyStream &body_stream, std::vector<char> &buffer, size_t buffer_pointer)
+    long HttpResponseReader::read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer)
     {
-        if (body_stream.pimpl->data_stream.is_stream_closed())
+        if (response.pimpl->body_stream.pimpl->data_stream.is_stream_closed())
         {
             return -1; // Indicate end of stream
         }
-        return body_stream.pimpl->data_stream.get_next(buffer, buffer_pointer);
+        return response.pimpl->body_stream.pimpl->data_stream.get_next(buffer, buffer_pointer);
     }
 }
