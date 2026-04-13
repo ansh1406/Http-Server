@@ -17,9 +17,8 @@ namespace http
             struct Impl;
             Impl *pimpl;
 
-            ResponseBodyStream() = default;
-
         public:
+            ResponseBodyStream() = default;
             ResponseBodyStream(WriterFunction writer);
             ResponseBodyStream(const std::vector<char> &data);
 
@@ -30,6 +29,27 @@ namespace http
 
         ResponseBodyStream body_stream;
     };
+
+    HttpResponse::HttpResponse() : _version("HTTP/1.1"), _status_code(0), _status_message(""), pimpl(new Impl()) {}
+
+    HttpResponse::HttpResponse(int status_code, const std::string &status_message)
+        : _version("HTTP/1.1"), _status_code(status_code), _status_message(status_message), pimpl(new Impl()) {}
+
+    HttpResponse::~HttpResponse() { delete pimpl; }
+
+    const std::string &HttpResponse::version() const noexcept { return _version; }
+
+    int HttpResponse::status_code() const noexcept { return _status_code; }
+
+    const std::string &HttpResponse::status_message() const noexcept { return _status_message; }
+
+    const std::map<std::string, std::string> &HttpResponse::headers() const noexcept { return _headers; }
+
+    void HttpResponse::set_status_code(int status_code) noexcept { _status_code = status_code; }
+
+    void HttpResponse::set_status_message(const std::string &status_message) { _status_message = status_message; }
+
+    void HttpResponse::set_header(const std::string &key, const std::string &value) { _headers[key] = value; }
 
     void HttpResponse::set_body_generator(WriterFunction writer)
     {
