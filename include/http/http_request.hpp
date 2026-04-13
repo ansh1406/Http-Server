@@ -67,7 +67,7 @@ namespace http
         /// @return The body of the HTTP request.
         const RequestBodyStream &body() const noexcept;
 
-        friend class HttpRequestBuilder;
+        friend struct HttpRequestBuilder;
     };
 }
 
