@@ -47,6 +47,8 @@ namespace http
             RequestStatus status;
             bool has_chunked_body = false;
             long content_length = -1;
+            long remaining_content_length = -1;
+            long body_cursor = 0;
 
         public:
             CurrentRequest();
@@ -72,8 +74,9 @@ namespace http
         void read_from_client();
         void read_request_line();
         void read_headers();
-        void read_body(long content_length);
-        void read_body(); // For chunked transfer encoding
+        void read_fixed_body();
+        void read_chunksize_line();
+        void read_body_chunk();
         void log_info(const std::string &message) const;
         void log_warning(const std::string &message) const;
         void log_error(const std::string &message) const;
