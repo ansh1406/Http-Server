@@ -14,41 +14,60 @@
 
 namespace http
 {
-    namespace request_status
+    enum RequestStatus
     {
-        const int CONNECTION_ESTABLISHED = 0;
-        const int READING_REQUEST_LINE = 1;
-        const int REQUEST_LINE_DONE = 2;
-        const int READING_HEADERS = 3;
-        const int HEADERS_DONE = 4;
-        const int READING_BODY = 5;
-        const int REQUEST_READING_DONE = 6;
-        const int SENDING_RESPONSE = 7;
-        const int COMPLETED = 8;
-        const int CLIENT_ERROR = 9;
-        const int SERVER_ERROR = 10;
-    }
+        CONNECTION_ESTABLISHED = 0,
+        READING_REQUEST_LINE = 1,
+        REQUEST_LINE_DONE = 2,
+        READING_HEADERS = 3,
+        HEADERS_DONE = 4,
+        READING_BODY = 5,
+        REQUEST_READING_DONE = 6,
+        SENDING_RESPONSE = 7,
+        COMPLETED = 8,
+        CLIENT_ERROR = 9,
+        SERVER_ERROR = 10
+    };
 
-    namespace connection_status
+    enum ConnectionStatus
     {
-        const int IDLE = 0;
-        const int READING = 1;
-        const int WRITING = 2;
-    }
+        IDLE = 0,
+        READING = 1,
+        WRITING = 2
+    };
 
     class HttpConnection
     {
+    public:
+        struct CurrentRequest
+        {
+        private:
+            HttpRequest request;
+            HttpResponse response;
+            RequestStatus status;
+            bool has_chunked_body = false;
+            long content_length = -1;
+
+        public:
+            CurrentRequest();
+
+            const RequestStatus get_status() const noexcept
+            {
+                return status;
+            }
+
+            friend class HttpConnection;
+        };
+
     private:
         std::vector<char> buffer;
         tcp::ConnectionSocket client_socket;
-        http::HttpRequest current_request;
-        http::HttpResponse current_response;
+        CurrentRequest current_request;
         time_t last_activity_time = 0;
-        int current_request_status = request_status::CONNECTION_ESTABLISHED;
         long buffer_cursor = 0;
         long buffer_size = 0;
         size_t parser_cursor = 0;
-        int peer_status = connection_status::IDLE;
+        int peer_status = ConnectionStatus::IDLE;
 
         void read_from_client();
         void read_request_line();
@@ -79,33 +98,33 @@ namespace http
 
         void set_peer_idle() noexcept
         {
-            peer_status = connection_status::IDLE;
+            peer_status = ConnectionStatus::IDLE;
             last_activity_time = time(nullptr);
         }
 
         void set_peer_reading() noexcept
         {
-            peer_status |= connection_status::READING;
+            peer_status |= ConnectionStatus::READING;
         }
 
         void set_peer_writing() noexcept
         {
-            peer_status |= connection_status::WRITING;
+            peer_status |= ConnectionStatus::WRITING;
         }
 
         const bool peer_is_readable() const noexcept
         {
-            return peer_status & connection_status::WRITING;
+            return peer_status & ConnectionStatus::WRITING;
         }
 
         const bool peer_is_writable() const noexcept
         {
-            return peer_status & connection_status::READING;
+            return peer_status & ConnectionStatus::READING;
         }
 
-        const int status() const noexcept
+        const CurrentRequest &get_current_request() const noexcept
         {
-            return current_request_status;
+            return current_request;
         }
 
         const time_t idle_time() const noexcept
