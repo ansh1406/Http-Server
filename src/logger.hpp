@@ -60,12 +60,18 @@ public:
     static void set_external_logging(const std::string &filename)
     {
         Logger &logger = get_instance();
-        logger.log_file.open(filename, std::ios::app);
-        if (!logger.log_file.is_open())
         {
-            throw std::runtime_error("Unable to open log file: " + filename);
+            std::lock_guard<std::mutex> lock(logger.log_mutex);
+            if (!logger.external_log)
+            {
+                logger.log_file.open(filename, std::ios::app);
+                if (!logger.log_file.is_open())
+                {
+                    throw std::runtime_error("Unable to open log file: " + filename);
+                }
+                logger.external_log = true;
+            }
         }
-        logger.external_log = true;
     }
 
     void log(const std::string &message, LogLevel level)
@@ -117,6 +123,8 @@ public:
             logger.log_file.close();
         }
     }
+
+    static bool logger_running;
 
 private:
     std::ofstream log_file;
