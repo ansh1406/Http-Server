@@ -9,12 +9,12 @@
 
 namespace tcp
 {
-    namespace socket_status
+    enum socket_status
     {
-        const int IDLE = 0;
-        const int READABLE = 1;
-        const int WRITABLE = 2;
-    }
+        IDLE = 0,
+        READABLE = 1,
+        WRITABLE = 2
+    };
 
     namespace exceptions
     {
@@ -53,7 +53,7 @@ namespace tcp
     {
         struct Impl;
         Impl *pimpl;
-        
+
         std::unordered_map<int, int> status;
         int max_events;
         time_t timeout;
@@ -66,8 +66,8 @@ namespace tcp
         EventManager(EventManager &&other) noexcept;
         EventManager &operator=(EventManager &&other) noexcept;
 
-        int register_socket(const int fd);
-        void add_to_write_monitoring(const int id);
+        int register_for_read(const int fd);
+        int register_for_write(const int fd);
         void remove_socket(const int id);
 
         ~EventManager();

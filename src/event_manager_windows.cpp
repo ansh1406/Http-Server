@@ -56,7 +56,7 @@ namespace tcp
 		return *this;
 	}
 
-	int EventManager::register_socket(const int fd)
+	int EventManager::register_for_read(const int fd)
 	{
 		try
 		{
@@ -86,30 +86,33 @@ namespace tcp
 		}
 	}
 
-	void EventManager::add_to_write_monitoring(const int id)
+	int EventManager::register_for_write(const int fd)
 	{
 		try
 		{
 			epoll_event ev{};
-			ev.events = EPOLLIN | EPOLLOUT;
-			ev.data.fd = id;
+			ev.events = EPOLLOUT;
+			ev.data.fd = fd;
 
-			if (epoll_ctl(pimpl->epoll_handle, EPOLL_CTL_MOD, static_cast<SOCKET>(id), &ev) != 0)
+			if (epoll_ctl(pimpl->epoll_handle, EPOLL_CTL_ADD, static_cast<SOCKET>(fd), &ev) != 0)
 			{
-				throw exceptions::CanNotModifySocket(wsa_error_message("Failed to modify socket for write monitoring: "));
+				throw exceptions::CanNotRegisterSocket(wsa_error_message("Failed to register socket: "));
 			}
+
+			status[fd] = socket_status::WRITABLE;
+			return fd;
 		}
-		catch (exceptions::CanNotModifySocket &)
+		catch (exceptions::CanNotRegisterSocket &)
 		{
 			throw;
 		}
 		catch (std::exception &e)
 		{
-			throw exceptions::CanNotModifySocket("Failed to modify socket for write monitoring: " + std::string(e.what()));
+			throw exceptions::CanNotRegisterSocket("Failed to register socket: " + std::string(e.what()));
 		}
 		catch (...)
 		{
-			throw exceptions::CanNotModifySocket("Failed to modify socket for write monitoring: Unknown error");
+			throw exceptions::CanNotRegisterSocket("Failed to register socket: Unknown error");
 		}
 	}
 
