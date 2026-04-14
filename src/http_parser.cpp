@@ -6,6 +6,23 @@
 #include "http/http_constants.hpp"
 
 #include <cctype>
+#include <algorithm>
+#include <unordered_set>
+
+namespace
+{
+    const std::unordered_set<std::string> repeatable_headers = {
+        http::headers::ACCEPT,
+        http::headers::ACCEPT_ENCODING,
+        http::headers::ACCEPT_LANGUAGE,
+        http::headers::CACHE_CONTROL,
+        http::headers::CONNECTION,
+        http::headers::VIA,
+        http::headers::WARNING,
+        http::headers::IF_MATCH,
+        http::headers::IF_NONE_MATCH,
+    };
+}
 
 http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<char> &raw_request, size_t &pos)
 {
@@ -76,7 +93,14 @@ std::map<std::string, std::string> http::HttpParser::parse_headers(const std::ve
 
         if (headers.find(key) != headers.end())
         {
-            /// TODO: Handle duplicate header
+            if (repeatable_headers.find(key) != repeatable_headers.end())
+            {
+                headers[key] += "," + value;
+            }
+            else
+            {
+                throw http::exceptions::InvalidDuplicateHeaders("Duplicate header: " + key);
+            }
         }
         else
         {
