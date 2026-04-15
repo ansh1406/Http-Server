@@ -143,7 +143,7 @@ void http::HttpServer::Impl::start_event_loop()
 
                     if (connection.peer_is_readable() && connection.get_current_request().get_status() < RequestStatus::HEADERS_DONE)
                     {
-                        connection.read_request();
+                        connection.read_and_build_request_head();
                     }
 
                     if (connection.get_current_request().get_status() == HEADERS_DONE)

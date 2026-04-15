@@ -20,7 +20,7 @@ void http::HttpConnection::send_response()
     /// TODO: Yet to implement.
 }
 
-void http::HttpConnection::read_request()
+void http::HttpConnection::read_and_build_request_head()
 {
     try
     {

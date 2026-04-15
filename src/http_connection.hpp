@@ -96,7 +96,7 @@ namespace http
 
         bool inactive = false;
 
-        void read_request();
+        void read_and_build_request_head();
         void handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept;
 
         void send_response();
