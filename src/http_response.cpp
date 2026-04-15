@@ -114,19 +114,18 @@ namespace http
     HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(const std::vector<char> &data)
     {
         size_t bytes_left = data.size();
-        WriterFunction writer = [data, bytes_left](std::vector<char> &buffer) mutable -> long
-        {
-            if (bytes_left == 0)
+        ResponseBodyStream(
+            [data, bytes_left](std::vector<char> &buffer) mutable -> long
             {
-                return -1; // Indicate end of stream
-            }
-            buffer.resize(data.size());
-            std::memcpy(buffer.data(), data.data(), data.size());
-            bytes_left = 0;
-            return static_cast<long>(data.size());
-        };
-
-        ResponseBodyStream(writer);
+                if (bytes_left == 0)
+                {
+                    return -1; // Indicate end of stream
+                }
+                buffer.resize(data.size());
+                std::memcpy(buffer.data(), data.data(), data.size());
+                bytes_left = 0;
+                return static_cast<long>(data.size());
+            });
     }
 
     HttpResponse::Impl::ResponseBodyStream::~ResponseBodyStream()
