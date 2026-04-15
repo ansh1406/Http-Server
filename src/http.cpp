@@ -54,7 +54,7 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
 
     try
     {
-        pimpl = new Impl(std::move(tcp::ListeningSocket(_config.port, _config.max_pending_connections)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), _config, handler);
+        pimpl = new Impl(std::move(tcp::ListeningSocket(_config.port, _config.max_pending_connections)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, 100)), _config, handler);
         pimpl->log_info("Server created on port:" + std::to_string(_config.port));
 
         size_t handler_thread_count = std::max(std::thread::hardware_concurrency() * 2, 8U);
@@ -311,9 +311,9 @@ void http::HttpServer::Impl::initialize_response_thread()
             {
                 std::unique_lock<std::mutex> lock(response_mutex);
                 response_cv.wait(lock, [this]()
-                                 { return !response_sending_connections.empty(); });
+                                 { return !waiting_to_send_response.empty() || !response_sending_connections.empty(); });
 
-                if (!waiting_to_send_response.empty())
+                while (!waiting_to_send_response.empty())
                 {
                     int conn_id = waiting_to_send_response.front();
                     waiting_to_send_response.pop();
@@ -321,6 +321,11 @@ void http::HttpServer::Impl::initialize_response_thread()
                     int id = response_event_manager.register_for_write(connections.at(conn_id).fd());
                     response_sending_connections[id] = conn_id;
                 }
+            }
+
+            if (response_sending_connections.empty())
+            {
+                continue;
             }
 
             try
