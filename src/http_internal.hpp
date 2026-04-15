@@ -10,6 +10,7 @@
 #include <queue>
 #include <string>
 #include <vector>
+#include <functional>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -43,6 +44,11 @@ namespace http
         std::mutex response_mutex;
         std::thread response_thread;
         std::condition_variable response_cv;
+
+        std::function<void()> handler_thread_function;
+        std::function<void()> response_thread_function;
+        void initialize_handler_threads();
+        void initialize_response_thread();
 
         void mark_inactive_connections();
         void accept_new_connections();
