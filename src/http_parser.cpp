@@ -206,7 +206,8 @@ size_t http::HttpParser::encode_response_status_line(const std::string &version,
 
 size_t http::HttpParser::encode_response_header(const std::string &header, const std::string &value, std::vector<char> &buffer, size_t cursor)
 {
-    if (header.size() + value.size() + cursor > buffer.size())
+    const size_t required_size = header.size() + value.size() + 3; // ':' + "\r\n"
+    if (cursor + required_size > buffer.size())
     {
         return 0;
     }
@@ -221,7 +222,7 @@ size_t http::HttpParser::encode_response_header(const std::string &header, const
     buffer[cursor++] = '\r';
     buffer[cursor++] = '\n';
 
-    return header.size() + value.size() + 2;
+    return required_size;
 }
 
 size_t http::HttpParser::encode_end_of_headers(std::vector<char> &buffer, size_t cursor)
