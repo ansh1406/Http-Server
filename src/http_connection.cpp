@@ -50,8 +50,8 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
             view.data = buffer.data();
             view.size = current_request.body_end_cursor;
             view.cursor = current_request.body_stream_cursor;
-            view.is_closed = current_request.status == RequestStatus::REQUEST_READING_DONE || inactive;
-            view.error = current_request.status == RequestStatus::CLIENT_ERROR || current_request.status == RequestStatus::SERVER_ERROR;
+            view.is_closed = current_request.status == RequestStatus::REQUEST_READING_DONE;
+            view.error = current_request.status == RequestStatus::CLIENT_ERROR || current_request.status == RequestStatus::SERVER_ERROR || inactive;
             return view;
         });
 
