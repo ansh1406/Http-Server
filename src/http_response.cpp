@@ -115,67 +115,38 @@ namespace http
         size_t buffer_cursor = 0;
         size_t buffer_size = 0;
         bool is_stream_closed = false;
+
+        void set_stream_functions(WriterFunction writer);
     };
 
     HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream()
         : pimpl(new Impl())
     {
+        pimpl->buffer.resize(8192); // Placeholder buffer size
     }
 
     HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(WriterFunction writer)
         : ResponseBodyStream()
     {
-        pimpl->buffer.resize(8192); /// Placeholder value.
-        Impl *stream_state = pimpl;
-        pimpl->data_stream.set_stream_updater(
-            [stream_state, writer]()
-            {
-                long bytes_written = writer(stream_state->buffer);
-                if (bytes_written == -1)
-                {
-                    stream_state->is_stream_closed = true;
-                }
-                else
-                {
-                    stream_state->buffer_size += bytes_written;
-                }
-            });
-
-        pimpl->data_stream.set_stream_view_provider(
-            [stream_state]()
-            {
-                stream_state->current_view.data = stream_state->buffer.data();
-                stream_state->current_view.size = stream_state->buffer_size;
-                stream_state->current_view.cursor = stream_state->buffer_cursor;
-                stream_state->current_view.is_closed = stream_state->is_stream_closed;
-                return stream_state->current_view;
-            });
-
-        pimpl->data_stream.set_cursor_advancer(
-            [stream_state](size_t bytes)
-            {
-                stream_state->buffer_cursor += bytes;
-                if (stream_state->buffer_cursor > stream_state->buffer_size)
-                {
-                    throw std::overflow_error("ResponseBodyStream: Cursor advanced beyond buffer size.");
-                }
-            });
+        pimpl->set_stream_functions(writer);
     }
 
-    HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(const std::vector<char> &data)
+    HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(const std::vector<char> &data) : ResponseBodyStream()
     {
         size_t bytes_left = data.size();
-        ResponseBodyStream(
+        auto writer =
             [data, bytes_left](std::vector<char> &buffer) mutable -> long
+        {
+            if (bytes_left == 0)
             {
-                if (bytes_left == 0)
-                {
-                    return -1; // Indicate end of stream
-                }
-                size_t chunk_size = std::min(bytes_left, static_cast<size_t>(8192)); // Placeholder chunk size
-                bytes_left -= chunk_size;
-                return chunk_size;
-            });
+                return -1; // Indicate end of stream
+            }
+            size_t chunk_size = std::min(bytes_left, buffer.size());
+            std::memcpy(buffer.data(), data.data() + (data.size() - bytes_left), chunk_size);
+            bytes_left -= chunk_size;
+            return chunk_size;
+        };
+        pimpl->set_stream_functions(writer);
     }
 
     HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(ResponseBodyStream &&other) noexcept
@@ -199,6 +170,43 @@ namespace http
     HttpResponse::Impl::ResponseBodyStream::~ResponseBodyStream()
     {
         delete pimpl;
+    }
+
+    void HttpResponse::Impl::ResponseBodyStream::Impl::set_stream_functions(WriterFunction writer)
+    {
+        this->data_stream.set_stream_updater(
+            [this, writer]()
+            {
+                long bytes_written = writer(this->buffer);
+                if (bytes_written == -1)
+                {
+                    this->is_stream_closed = true;
+                }
+                else
+                {
+                    this->buffer_size += bytes_written;
+                }
+            });
+
+        this->data_stream.set_stream_view_provider(
+            [this]()
+            {
+                this->current_view.data = this->buffer.data();
+                this->current_view.size = this->buffer_size;
+                this->current_view.cursor = this->buffer_cursor;
+                this->current_view.is_closed = this->is_stream_closed;
+                return this->current_view;
+            });
+
+        this->data_stream.set_cursor_advancer(
+            [this](size_t bytes)
+            {
+                this->buffer_cursor += bytes;
+                if (this->buffer_cursor > this->buffer_size)
+                {
+                    throw std::overflow_error("ResponseBodyStream: Cursor advanced beyond buffer size.");
+                }
+            });
     }
 
     long HttpResponseReader::read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer)
