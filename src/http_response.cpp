@@ -30,10 +30,10 @@ namespace http
         ResponseBodyStream body_stream;
     };
 
-    HttpResponse::HttpResponse() : _version("HTTP/1.1"), _status_code(0), _status_message(""), pimpl(new Impl()) {}
+    HttpResponse::HttpResponse() : _version("HTTP/1.1"), _status_code(0), _reason_phrase(""), pimpl(new Impl()) {}
 
-    HttpResponse::HttpResponse(int status_code, const std::string &status_message)
-        : _version("HTTP/1.1"), _status_code(status_code), _status_message(status_message), pimpl(new Impl()) {}
+    HttpResponse::HttpResponse(int status_code, const std::string &reason_phrase)
+        : _version("HTTP/1.1"), _status_code(status_code), _reason_phrase(reason_phrase), pimpl(new Impl()) {}
 
     HttpResponse::~HttpResponse() { delete pimpl; }
 
@@ -41,13 +41,13 @@ namespace http
 
     int HttpResponse::status_code() const noexcept { return _status_code; }
 
-    const std::string &HttpResponse::status_message() const noexcept { return _status_message; }
+    const std::string &HttpResponse::reason_phrase() const noexcept { return _reason_phrase; }
 
     const std::map<std::string, std::string> &HttpResponse::headers() const noexcept { return _headers; }
 
     void HttpResponse::set_status_code(int status_code) noexcept { _status_code = status_code; }
 
-    void HttpResponse::set_status_message(const std::string &status_message) { _status_message = status_message; }
+    void HttpResponse::set_status_message(const std::string &reason_phrase) { _reason_phrase = reason_phrase; }
 
     void HttpResponse::set_header(const std::string &key, const std::string &value) { _headers[key] = value; }
 
