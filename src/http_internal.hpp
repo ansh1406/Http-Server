@@ -9,7 +9,6 @@
 #include <map>
 #include <queue>
 #include <string>
-#include <vector>
 #include <functional>
 #include <thread>
 #include <mutex>
@@ -32,9 +31,12 @@ namespace http
         HttpServerConfig config;
         RequestHandler request_handler;
         std::map<int, HttpConnection> connections;
+        std::map<int, int> response_sending_connections;
 
         std::queue<int> waiting_for_handler_connections;
-        std::vector<int> response_sending_connections;
+        std::queue<int> waiting_to_send_response;
+
+        std::mutex completed_connections_mutex;
         std::queue<int> completed_connections;
 
         std::mutex handler_mutex;

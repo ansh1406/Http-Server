@@ -60,6 +60,8 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
         size_t handler_thread_count = std::min(std::thread::hardware_concurrency() * 2, 8U);
         pimpl->handler_threads.resize(handler_thread_count);
         pimpl->initialize_handler_threads();
+
+        pimpl->initialize_response_thread();
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {
@@ -225,7 +227,7 @@ void http::HttpServer::Impl::initialize_handler_threads()
                 connections.at(conn_id).handle_request(request_handler);
                 {
                     std::lock_guard<std::mutex> lock(response_mutex);
-                    response_sending_connections.push_back(conn_id);
+                    waiting_to_send_response.push(conn_id);
                 }
                 response_cv.notify_one();
             }
@@ -244,4 +246,50 @@ void http::HttpServer::Impl::initialize_handler_threads()
     {
         handler_threads[i] = std::thread(handler_thread_function);
     }
+}
+
+void http::HttpServer::Impl::initialize_response_thread()
+{
+    response_thread_function = [this]()
+    {
+        while (true)
+        {
+            {
+                std::unique_lock<std::mutex> lock(response_mutex);
+                response_cv.wait(lock, [this]()
+                                 { return !response_sending_connections.empty(); });
+
+                if (!waiting_to_send_response.empty())
+                {
+                    int conn_id = waiting_to_send_response.front();
+                    waiting_to_send_response.pop();
+
+                    int id = response_event_manager.register_for_write(connections.at(conn_id).fd());
+                    response_sending_connections[id] = conn_id;
+                }
+            }
+
+            try
+            {
+                std::vector<int> active_connections = response_event_manager.wait_for_events();
+                for (auto id : active_connections)
+                {
+                    int conn_id = response_sending_connections.at(id);
+                    HttpConnection &connection = connections.at(conn_id);
+
+                    /// TODO: Yet to implement.
+                }
+            }
+            catch (const std::exception &e)
+            {
+                /// TODO: Yet to implement.
+            }
+            catch (...)
+            {
+                /// TODO: Yet to implement.
+            }
+        }
+    };
+
+    response_thread = std::thread(response_thread_function);
 }
