@@ -48,7 +48,7 @@ namespace http
             bool has_chunked_body = false;
             long content_length = -1;
             long remaining_content_length = -1;
-            long body_cursor = 0;
+            long body_end_cursor = 0;
 
         public:
             CurrentRequest();

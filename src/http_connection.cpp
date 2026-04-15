@@ -249,7 +249,7 @@ void http::HttpConnection::read_body()
         {
             long bytes_read = read_body_chunk();
             current_request.remaining_content_length -= bytes_read;
-            current_request.body_cursor += bytes_read;
+            current_request.body_end_cursor += bytes_read;
             if (current_request.remaining_content_length == 0)
             {
                 buffer_cursor += 2; // To skip the \r\n after chunk data
@@ -260,6 +260,7 @@ void http::HttpConnection::read_body()
     {
         long bytes_read = read_fixed_body();
         current_request.remaining_content_length -= bytes_read;
+        current_request.body_end_cursor += bytes_read;
         if (current_request.remaining_content_length == 0)
         {
             current_request.status = RequestStatus::REQUEST_READING_DONE;
