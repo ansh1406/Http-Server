@@ -121,10 +121,10 @@ namespace http
                 {
                     return -1; // Indicate end of stream
                 }
-                buffer.resize(data.size());
-                std::memcpy(buffer.data(), data.data(), data.size());
-                bytes_left = 0;
-                return static_cast<long>(data.size());
+                size_t bytes_to_write = std::min(bytes_left, buffer.size());
+                std::memcpy(buffer.data(), data.data(), bytes_to_write);
+                bytes_left -= bytes_to_write;
+                return static_cast<long>(bytes_to_write);
             });
     }
 
