@@ -76,6 +76,7 @@ namespace http
     HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(WriterFunction writer)
     {
         pimpl = new Impl();
+        pimpl->buffer.resize(8192); /// Placeholder value.
         pimpl->data_stream.set_stream_updater(
             [this, writer]()
             {
