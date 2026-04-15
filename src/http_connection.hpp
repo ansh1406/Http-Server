@@ -94,6 +94,8 @@ namespace http
         HttpConnection(HttpConnection &&) = default;
         HttpConnection &operator=(HttpConnection &&) = default;
 
+        bool inactive = false;
+
         void read_request();
         void handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept;
 
