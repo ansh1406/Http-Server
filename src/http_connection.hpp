@@ -28,6 +28,7 @@ namespace http
         SENDING_HEADERS,
         SENDING_RESPONSE_HEAD_DONE,
         SENDING_BODY,
+        SENDING_BUFFER_FLUSHING,
         COMPLETED,
         CLIENT_ERROR,
         SERVER_ERROR
