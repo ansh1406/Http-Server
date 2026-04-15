@@ -77,6 +77,7 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
         try
         {
             request_handler(current_request.request, current_response.response);
+            current_request.status = RequestStatus::REQUEST_HANDLING_DONE;
         }
         catch (const std::exception &e)
         {
