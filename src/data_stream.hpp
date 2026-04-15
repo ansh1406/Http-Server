@@ -22,6 +22,7 @@ namespace http
             size_t size;
             size_t cursor;
             bool is_closed;
+            bool error;
         };
         struct StreamPipelineBroken : public std::runtime_error
         {
@@ -58,7 +59,7 @@ namespace http
             stream_view_provider = []() -> StreamView
             {
                 // Default empty stream view
-                return StreamView{nullptr, 0, 0, true};
+                return StreamView{nullptr, 0, 0, true, false};
             };
             cursor_advancer = [](size_t)
             {
@@ -93,6 +94,11 @@ namespace http
                 if (view.is_closed)
                 {
                     return 0;
+                }
+
+                if (view.error)
+                {
+                    throw StreamPipelineBroken("DataStream: Stream pipeline is broken.");
                 }
 
                 size_t available_data_size = view.size;
@@ -140,6 +146,10 @@ namespace http
                 if (view.is_closed)
                 {
                     break;
+                }
+                if (view.error)
+                {
+                    throw StreamPipelineBroken("DataStream: Stream pipeline is broken.");
                 }
                 read_more();
             }
