@@ -129,6 +129,7 @@ namespace tcp
         size_t receive_data(std::vector<char> &buffer, size_t buffer_cursor, bool read_once = false);
 
         void set_socket_blocking(time_t blocking_timeout_in_milliseconds = 0);
+        void set_socket_non_blocking();
 
         /// @return IP address of the connected peer as a string
         std::string get_ip() const

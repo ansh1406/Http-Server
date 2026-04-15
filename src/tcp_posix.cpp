@@ -250,6 +250,19 @@ void tcp::ConnectionSocket::set_socket_blocking(time_t blocking_timeout_in_milli
     }
 }
 
+void tcp::ConnectionSocket::set_socket_non_blocking()
+{
+    int flags = fcntl(socket_fd.fd(), F_GETFL, 0);
+    if (flags == -1)
+        flags = 0;
+    flags |= O_NONBLOCK;
+    if (fcntl(socket_fd.fd(), F_SETFL, flags) < 0)
+    {
+        int err = errno;
+        throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
+    }
+}
+
 void tcp::SocketFD::close_fd()
 {
     if (fd_ != constants::INVALID_HANDLE)

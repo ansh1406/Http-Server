@@ -281,6 +281,26 @@ namespace tcp
         }
     }
 
+    void tcp::ConnectionSocket::set_socket_non_blocking()
+    {
+        try
+        {
+            u_long mode = 1; // Non-blocking mode
+            if (ioctlsocket(socket_fd.fd(), FIONBIO, &mode) != 0)
+            {
+                throw exceptions::CanNotSetSocketOptions{std::string("TCP: ") + get_error_message()};
+            }
+        }
+        catch (const std::exception &e)
+        {
+            throw exceptions::CanNotSetSocketOptions{"TCP: Failed to set socket to non-blocking mode: " + std::string(e.what())};
+        }
+        catch (...)
+        {
+            throw exceptions::CanNotSetSocketOptions{"TCP: Unknown error while setting socket to non-blocking mode."};
+        }
+    }
+
     void SocketFD::close_fd()
     {
         if (fd_ != constants::INVALID_HANDLE)
