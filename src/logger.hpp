@@ -1,3 +1,6 @@
+#ifndef HTTP_SERVER_LOGGER_HPP
+#define HTTP_SERVER_LOGGER_HPP
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -93,8 +96,9 @@ public:
             }
 
             std::time_t now = std::time(nullptr);
+            auto local_tm = get_local_time(now);
             char time_buf[20];
-            std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", &::get_local_time(now));
+            std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", &local_tm);
 
             {
                 std::lock_guard<std::mutex> lock(log_mutex);
@@ -133,3 +137,5 @@ private:
 
     Logger() = default;
 };
+
+#endif // HTTP_SERVER_LOGGER_HPP
