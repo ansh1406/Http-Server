@@ -52,9 +52,10 @@ namespace http
         void initialize_handler_threads();
         void initialize_response_thread();
 
-        void mark_inactive_connections();
-        void accept_new_connections();
         void start_event_loop();
+        void accept_new_connections();
+        void mark_inactive_connections();
+        void remove_completed_connections();
 
         void log_info(const std::string &message) const;
         void log_warning(const std::string &message) const;

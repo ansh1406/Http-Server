@@ -195,6 +195,18 @@ void http::HttpServer::Impl::mark_inactive_connections()
     }
 }
 
+void http::HttpServer::Impl::remove_completed_connections()
+{
+    std::lock_guard<std::mutex> lock(completed_connections_mutex);
+    while (!completed_connections.empty())
+    {
+        int conn_id = completed_connections.front();
+        completed_connections.pop();
+        connections.erase(conn_id);
+        log_info("Connection closed: " + std::to_string(conn_id));
+    }
+}
+
 void http::HttpServer::Impl::accept_new_connections()
 {
     std::vector<tcp::ConnectionSocket> new_connections = server_socket.accept_connections();
