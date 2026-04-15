@@ -47,8 +47,6 @@ namespace http
         std::thread response_thread;
         std::condition_variable response_cv;
 
-        std::function<void()> handler_thread_function;
-        std::function<void()> response_thread_function;
         void initialize_handler_threads();
         void initialize_response_thread();
 

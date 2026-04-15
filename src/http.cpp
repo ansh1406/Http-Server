@@ -245,7 +245,7 @@ void http::HttpServer::Impl::accept_new_connections()
 void http::HttpServer::Impl::initialize_handler_threads()
 {
 
-    handler_thread_function = [this]()
+    auto handler_thread_function = [this]()
     {
         while (true)
         {
@@ -286,7 +286,7 @@ void http::HttpServer::Impl::initialize_handler_threads()
 
 void http::HttpServer::Impl::initialize_response_thread()
 {
-    response_thread_function = [this]()
+    auto response_thread_function = [this]()
     {
         while (true)
         {
