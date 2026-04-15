@@ -330,17 +330,39 @@ void http::HttpServer::Impl::initialize_response_thread()
                 {
                     int conn_id = response_sending_connections.at(id);
                     HttpConnection &connection = connections.at(conn_id);
+                    try
+                    {
+                        connection.send_response();
+                    }
+                    catch (const std::exception &e)
+                    {
+                        log_error(std::string("Error sending response: ") + e.what());
+                        connection.inactive = true;
+                    }
+                    catch (...)
+                    {
+                        log_error("Unknown error sending response.");
+                        connection.inactive = true;
+                    }
 
-                    /// TODO: Yet to implement.
+                    if (connection.get_current_request().get_status() == RequestStatus::COMPLETED || connection.inactive)
+                    {
+                        response_event_manager.remove_socket(id);
+                        response_sending_connections.erase(id);
+                        {
+                            std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                            completed_connections.push(conn_id);
+                        }
+                    }
                 }
             }
             catch (const std::exception &e)
             {
-                /// TODO: Yet to implement.
+                log_error(std::string("Error in response thread: ") + e.what());
             }
             catch (...)
             {
-                /// TODO: Yet to implement.
+                log_error("Unknown error in response thread.");
             }
         }
     };
