@@ -84,7 +84,16 @@ namespace http
 
     void HttpResponse::set_status_message(const std::string &reason_phrase) { _reason_phrase = reason_phrase; }
 
-    void HttpResponse::set_header(const std::string &key, const std::string &value) { _headers[key] = value; }
+    void HttpResponse::set_header(const std::string &key, const std::string &value)
+    {
+        std::string lower_key = key;
+        for (char &c : lower_key)
+        {
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        }
+
+        _headers[lower_key] = value;
+    }
 
     void HttpResponse::set_body_generator(WriterFunction writer)
     {
