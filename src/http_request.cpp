@@ -16,7 +16,14 @@ namespace http
 
     size_t HttpRequest::RequestBodyStream::get_next(std::vector<char> &buffer, size_t buffer_cursor)
     {
-        return pimpl->data_stream.get_next(buffer, buffer_cursor);
+        try
+        {
+            return pimpl->data_stream.get_next(buffer, buffer_cursor);
+        }
+        catch (...)
+        {
+            throw StreamError("Failed to read from request body stream.");
+        }
     }
 
     bool HttpRequest::RequestBodyStream::has_more_data() const

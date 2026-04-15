@@ -22,6 +22,11 @@ namespace http
             RequestBodyStream();
 
         public:
+            struct StreamError : public std::runtime_error
+            {
+                explicit StreamError(const std::string &message) : std::runtime_error(message) {}
+            };
+
             ~RequestBodyStream();
 
             bool has_more_data() const;
