@@ -6,6 +6,14 @@
 #include "event_manager.hpp"
 #include "logger.hpp"
 
+#include <map>
+#include <queue>
+#include <string>
+#include <vector>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
 namespace http
 {
     namespace sizes
@@ -19,11 +27,24 @@ namespace http
     {
         tcp::ListeningSocket server_socket;
         tcp::EventManager request_event_manager;
+        tcp::EventManager response_event_manager;
         HttpServerConfig config;
-        std::map<int, HttpConnection> connections;
         RequestHandler request_handler;
+        std::map<int, HttpConnection> connections;
 
-        void check_and_remove_inactive_connections();
+        std::queue<int> waiting_for_handler_connections;
+        std::vector<int> response_sending_connections;
+        std::queue<int> completed_connections;
+
+        std::mutex handler_mutex;
+        std::vector<std::thread> handler_threads;
+        std::condition_variable handler_cv;
+
+        std::mutex response_mutex;
+        std::thread response_thread;
+        std::condition_variable response_cv;
+
+        void mark_inactive_connections();
         void accept_new_connections();
         void start_event_loop();
 
@@ -34,7 +55,14 @@ namespace http
         std::string get_ip() const;
         unsigned short get_port() const noexcept;
 
-        Impl(tcp::ListeningSocket &&sock, tcp::EventManager &&em, HttpServerConfig _config, RequestHandler handler) : server_socket(std::move(sock)), request_event_manager(std::move(em)), config(_config), request_handler(handler) {}
+        Impl(tcp::ListeningSocket &&sock,
+             tcp::EventManager &&req_em,
+             tcp::EventManager &&resp_em,
+             HttpServerConfig _config,
+             RequestHandler handler) : server_socket(std::move(sock)),
+                                       request_event_manager(std::move(req_em)),
+                                       response_event_manager(std::move(resp_em)),
+                                       config(_config), request_handler(handler) {}
     };
 }
 #endif // HTTP_INTERNAL_HPP
