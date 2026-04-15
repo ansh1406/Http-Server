@@ -15,81 +15,91 @@ http::HttpConnection::HttpConnection(tcp::ConnectionSocket &&socket) : client_so
 
 void http::HttpConnection::handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept
 {
-    if (current_request.has_chunked_body && current_request.content_length != -1)
-    {
-        throw http::exceptions::BothContentLengthAndChunked();
-    }
-    if (!current_request.has_chunked_body && current_request.content_length == -1)
-    {
-        current_request.status = RequestStatus::REQUEST_READING_DONE;
-    }
-    else
-    {
-        client_socket.set_socket_blocking(100); // 100 is placeholder value.
-        current_request.status = RequestStatus::READING_BODY;
-    }
-
-    DataStream body_stream;
-
-    body_stream.set_stream_updater(
-        [this]()
-        {
-            if (buffer_cursor == buffer_size)
-            {
-                buffer_cursor = 0;
-                buffer_size = 0;
-                read_from_client();
-            }
-            read_body();
-        });
-
-    body_stream.set_stream_view_provider(
-        [this]() -> DataStream::StreamView
-        {
-            DataStream::StreamView view;
-            view.data = buffer.data();
-            view.size = current_request.body_end_cursor;
-            view.cursor = current_request.body_stream_cursor;
-            view.is_closed = current_request.status == RequestStatus::REQUEST_READING_DONE;
-            view.error = current_request.status == RequestStatus::CLIENT_ERROR || current_request.status == RequestStatus::SERVER_ERROR || inactive;
-            return view;
-        });
-
-    body_stream.set_cursor_advancer(
-        [this](size_t bytes)
-        {
-            current_request.body_stream_cursor += bytes;
-
-            if (current_request.body_stream_cursor == current_request.body_end_cursor)
-            {
-                current_request.body_stream_cursor = 0;
-                current_request.body_end_cursor = 0;
-            }
-        });
-
-    HttpRequestBuilder::set_body_stream(current_request.request, std::move(body_stream));
-
     try
     {
-        request_handler(current_request.request, current_request.response);
-    }
-    catch (const std::exception &e)
-    {
-        log_error(std::string("Error handling request: ") + e.what());
-        current_request.status = RequestStatus::SERVER_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+        if (current_request.has_chunked_body && current_request.content_length != -1)
+        {
+            log_error("Both Content-Length and chunked Transfer-Encoding headers present in request.");
+            current_request.status = RequestStatus::CLIENT_ERROR;
+            current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+            return;
+        }
+        if (!current_request.has_chunked_body && current_request.content_length == -1)
+        {
+            current_request.status = RequestStatus::REQUEST_READING_DONE;
+        }
+        else
+        {
+            client_socket.set_socket_blocking(100); // 100 is placeholder value.
+            current_request.status = RequestStatus::READING_BODY;
+        }
+
+        DataStream body_stream;
+
+        body_stream.set_stream_updater(
+            [this]()
+            {
+                if (buffer_cursor == buffer_size)
+                {
+                    buffer_cursor = 0;
+                    buffer_size = 0;
+                    read_from_client();
+                }
+                read_body();
+            });
+
+        body_stream.set_stream_view_provider(
+            [this]() -> DataStream::StreamView
+            {
+                DataStream::StreamView view;
+                view.data = buffer.data();
+                view.size = current_request.body_end_cursor;
+                view.cursor = current_request.body_stream_cursor;
+                view.is_closed = current_request.status == RequestStatus::REQUEST_READING_DONE;
+                view.error = current_request.status == RequestStatus::CLIENT_ERROR || current_request.status == RequestStatus::SERVER_ERROR || inactive;
+                return view;
+            });
+
+        body_stream.set_cursor_advancer(
+            [this](size_t bytes)
+            {
+                current_request.body_stream_cursor += bytes;
+
+                if (current_request.body_stream_cursor == current_request.body_end_cursor)
+                {
+                    current_request.body_stream_cursor = 0;
+                    current_request.body_end_cursor = 0;
+                }
+            });
+
+        HttpRequestBuilder::set_body_stream(current_request.request, std::move(body_stream));
+
+        try
+        {
+            request_handler(current_request.request, current_request.response);
+        }
+        catch (const std::exception &e)
+        {
+            log_error(std::string("Error handling request: ") + e.what());
+            current_request.status = RequestStatus::SERVER_ERROR;
+            current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+        }
+        catch (...)
+        {
+            log_error("Unknown error handling request.");
+            current_request.status = RequestStatus::SERVER_ERROR;
+            current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+        }
     }
     catch (...)
     {
-        log_error("Unknown error handling request.");
-        current_request.status = RequestStatus::SERVER_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+        // Suppress all.
     }
 }
 
 void http::HttpConnection::send_response()
 {
-    /// TODO: Yet to implement.
+    current_request.response.set_header("Connection", "close");
 }
 
 void http::HttpConnection::read_and_build_request_head()
