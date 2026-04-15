@@ -23,10 +23,13 @@ namespace http
         HEADERS_DONE = 4,
         READING_BODY = 5,
         REQUEST_READING_DONE = 6,
-        SENDING_RESPONSE = 7,
-        COMPLETED = 8,
-        CLIENT_ERROR = 9,
-        SERVER_ERROR = 10
+        REQUEST_HANDLING_DONE = 7,
+        SENDING_STATUS_LINE = 8,
+        SENDING_HEADERS = 9,
+        SENDING_BODY = 10,
+        COMPLETED = 11,
+        CLIENT_ERROR = 12,
+        SERVER_ERROR = 13
     };
 
     enum ConnectionStatus
@@ -43,8 +46,8 @@ namespace http
         {
         private:
             HttpRequest request;
-            HttpResponse response;
             RequestStatus status;
+
             bool has_chunked_body = false;
             long content_length = -1;
             long remaining_content_length = -1;
@@ -62,10 +65,31 @@ namespace http
             friend class HttpConnection;
         };
 
+        struct CurrentResponse
+        {
+        private:
+            HttpResponse response;
+            bool has_chunked_body = false;
+            long content_length = -1;
+            long remaining_content_length = -1;
+
+            std::map<std::string, std::string>::const_iterator currently_sending_header;
+
+            bool has_fixed_length_body() const
+            {
+                return content_length != -1;
+            }
+
+        public:
+            CurrentResponse() = default;
+            friend class HttpConnection;
+        };
+
     private:
         std::vector<char> buffer;
         tcp::ConnectionSocket client_socket;
         CurrentRequest current_request;
+        CurrentResponse current_response;
         time_t last_activity_time = 0;
         long buffer_cursor = 0;
         long buffer_size = 0;

@@ -9,7 +9,7 @@
 #include <cstring>
 #include <vector>
 
-http::HttpConnection::CurrentRequest::CurrentRequest() : request(HttpRequestBuilder::build()), response(), status(RequestStatus::CONNECTION_ESTABLISHED) {}
+http::HttpConnection::CurrentRequest::CurrentRequest() : request(HttpRequestBuilder::build()), status(RequestStatus::CONNECTION_ESTABLISHED) {}
 
 http::HttpConnection::HttpConnection(tcp::ConnectionSocket &&socket) : client_socket(std::move(socket)), current_request(), last_activity_time(time(nullptr)) {}
 
@@ -21,7 +21,7 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
         {
             log_error("Both Content-Length and chunked Transfer-Encoding headers present in request.");
             current_request.status = RequestStatus::CLIENT_ERROR;
-            current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+            current_response.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
             return;
         }
         if (!current_request.has_chunked_body && current_request.content_length == -1)
@@ -76,19 +76,19 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
 
         try
         {
-            request_handler(current_request.request, current_request.response);
+            request_handler(current_request.request, current_response.response);
         }
         catch (const std::exception &e)
         {
             log_error(std::string("Error handling request: ") + e.what());
             current_request.status = RequestStatus::SERVER_ERROR;
-            current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+            current_response.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
         }
         catch (...)
         {
             log_error("Unknown error handling request.");
             current_request.status = RequestStatus::SERVER_ERROR;
-            current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+            current_response.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
         }
     }
     catch (...)
@@ -155,91 +155,91 @@ void http::HttpConnection::read_and_build_request_head()
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        current_response.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::InvalidRequestLine &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        current_response.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::InvalidChunkedEncoding &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        current_response.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::InvalidContentLength &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        current_response.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::MultipleContentLengthHeaders &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        current_response.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::BothContentLengthAndChunked &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        current_response.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::TransferEncodingWithoutChunked &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        current_response.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (const http::exceptions::RequestLineTooLong &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::URI_TOO_LONG, "Invalid Request Line");
+        current_response.response = http::HttpResponse(http::status_codes::URI_TOO_LONG, "Invalid Request Line");
         return;
     }
     catch (const http::exceptions::HeadersTooLarge &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large");
+        current_response.response = http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large");
         return;
     }
     catch (const http::exceptions::VersionNotSupported &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
+        current_response.response = http::HttpResponse(http::status_codes::HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
         return;
     }
     catch (const http::exceptions::InvalidDuplicateHeaders &e)
     {
         log_error(std::string(e.what()));
         current_request.status = RequestStatus::CLIENT_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
+        current_response.response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
         return;
     }
     catch (std::exception &e)
     {
         log_error(std::string("Unknown error reading request: ") + e.what());
         current_request.status = RequestStatus::SERVER_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+        current_response.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
         return;
     }
     catch (...)
     {
         log_error("Unknown error reading request.");
         current_request.status = RequestStatus::SERVER_ERROR;
-        current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+        current_response.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
         return;
     }
 }
