@@ -228,7 +228,46 @@ void http::HttpConnection::read_headers()
     }
 }
 
-void http::HttpConnection::read_fixed_body()
+void http::HttpConnection::read_body()
+{
+    if (current_request.has_chunked_body)
+    {
+        if (current_request.remaining_content_length == 0)
+        {
+            long chunk_size = read_chunksize_line();
+            if (chunk_size == 0)
+            {
+                current_request.status = RequestStatus::REQUEST_READING_DONE;
+                return;
+            }
+            else if (chunk_size > 0)
+            {
+                current_request.remaining_content_length = chunk_size;
+            }
+        }
+        if (current_request.remaining_content_length > 0)
+        {
+            long bytes_read = read_body_chunk();
+            current_request.remaining_content_length -= bytes_read;
+            current_request.body_cursor += bytes_read;
+            if (current_request.remaining_content_length == 0)
+            {
+                buffer_cursor += 2; // To skip the \r\n after chunk data
+            }
+        }
+    }
+    else if (current_request.content_length != -1 && current_request.remaining_content_length > 0)
+    {
+        long bytes_read = read_fixed_body();
+        current_request.remaining_content_length -= bytes_read;
+        if (current_request.remaining_content_length == 0)
+        {
+            current_request.status = RequestStatus::REQUEST_READING_DONE;
+        }
+    }
+}
+
+long http::HttpConnection::read_fixed_body()
 {
     size_t bytes_to_read = std::min((size_t)(buffer.size() - buffer_cursor), (size_t)current_request.remaining_content_length);
     buffer_cursor += bytes_to_read;
@@ -236,7 +275,7 @@ void http::HttpConnection::read_fixed_body()
     current_request.remaining_content_length -= bytes_to_read;
 }
 
-void http::HttpConnection::read_chunksize_line() // For chunked transfer encoding
+long http::HttpConnection::read_chunksize_line() // For chunked transfer encoding
 {
     try
     {
@@ -275,7 +314,7 @@ void http::HttpConnection::read_chunksize_line() // For chunked transfer encodin
     }
 }
 
-void http::HttpConnection::read_body_chunk()
+long http::HttpConnection::read_body_chunk()
 {
     size_t bytes_to_read = std::min((size_t)(buffer.size() - buffer_cursor), (size_t)current_request.remaining_content_length);
     memmove(buffer.data() + current_request.body_cursor, buffer.data() + buffer_cursor, bytes_to_read);

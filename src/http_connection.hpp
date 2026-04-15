@@ -74,9 +74,10 @@ namespace http
         void read_from_client();
         void read_request_line();
         void read_headers();
-        void read_fixed_body();
-        void read_chunksize_line();
-        void read_body_chunk();
+        void read_body();
+        long read_fixed_body();
+        long read_chunksize_line();
+        long read_body_chunk();
         void log_info(const std::string &message) const;
         void log_warning(const std::string &message) const;
         void log_error(const std::string &message) const;
