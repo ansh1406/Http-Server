@@ -236,3 +236,33 @@ size_t http::HttpParser::encode_end_of_headers(std::vector<char> &buffer, size_t
 
     return 2;
 }
+
+size_t http::HttpParser::encode_chunksize_line(size_t chunk_size, unsigned int width, std::vector<char> &buffer, size_t cursor)
+{
+    if (width + 2 + cursor > buffer.size())
+    {
+        return 0;
+    }
+    
+    int place_no = 0;
+    while (chunk_size > 0)
+    {
+        unsigned int place = cursor + width - 1 - place_no;
+        unsigned int digit = chunk_size % 16;
+        if (digit < 10)
+        {
+            buffer[place] = '0' + digit;
+        }
+        else
+        {
+            buffer[place] = 'a' + digit - 10;
+        }
+        chunk_size /= 16;
+    }
+
+    cursor += width;
+    buffer[cursor++] = '\r';
+    buffer[cursor++] = '\n';
+
+    return width + 2;
+}

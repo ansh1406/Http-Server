@@ -54,6 +54,8 @@ namespace http
         static size_t encode_response_header(const std::string &header, const std::string &value, std::vector<char> &buffer, size_t cursor = 0);
 
         static size_t encode_end_of_headers(std::vector<char> &buffer, size_t cursor = 0);
+
+        static size_t encode_chunksize_line(size_t chunk_size, unsigned int width, std::vector<char> &buffer, size_t cursor = 0);
     };
 }
 
