@@ -9,7 +9,7 @@
 #include <cstring>
 #include <vector>
 
-http::HttpConnection::CurrentRequest::CurrentRequest() : request(HttpRequestBuilder::build()), status(RequestStatus::CONNECTION_ESTABLISHED) {}
+http::HttpConnection::CurrentRequest::CurrentRequest() : request(std::move(HttpRequestBuilder::build())), status(RequestStatus::CONNECTION_ESTABLISHED) {}
 
 http::HttpConnection::HttpConnection(tcp::ConnectionSocket &&socket) : client_socket(std::move(socket)), current_request(), last_activity_time(time(nullptr)) {}
 
