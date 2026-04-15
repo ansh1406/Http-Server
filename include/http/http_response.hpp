@@ -42,6 +42,11 @@ namespace http
 
         ~HttpResponse();
 
+        HttpResponse(const HttpResponse &) = delete;
+        HttpResponse &operator=(const HttpResponse &) = delete;
+        HttpResponse(HttpResponse &&other) noexcept;
+        HttpResponse &operator=(HttpResponse &&other) noexcept;
+
         /// @return HTTP version as a std::string.
         const std::string &version() const noexcept;
         /// @return HTTP status code as an int.

@@ -6,6 +6,7 @@
 #include <vector>
 #include <stdexcept>
 #include <cstring>
+#include <utility>
 
 namespace http
 {
@@ -18,9 +19,14 @@ namespace http
             Impl *pimpl;
 
         public:
-            ResponseBodyStream() = default;
+            ResponseBodyStream();
             ResponseBodyStream(WriterFunction writer);
             ResponseBodyStream(const std::vector<char> &data);
+
+            ResponseBodyStream(const ResponseBodyStream &) = delete;
+            ResponseBodyStream &operator=(const ResponseBodyStream &) = delete;
+            ResponseBodyStream(ResponseBodyStream &&other) noexcept;
+            ResponseBodyStream &operator=(ResponseBodyStream &&other) noexcept;
 
             ~ResponseBodyStream();
 
@@ -34,6 +40,35 @@ namespace http
 
     HttpResponse::HttpResponse(int status_code, const std::string &reason_phrase)
         : _version("HTTP/1.1"), _status_code(status_code), _reason_phrase(reason_phrase), pimpl(new Impl()) {}
+
+    HttpResponse::HttpResponse(HttpResponse &&other) noexcept
+        : _version(std::move(other._version)),
+          _status_code(other._status_code),
+          _reason_phrase(std::move(other._reason_phrase)),
+          _headers(std::move(other._headers)),
+          pimpl(other.pimpl)
+    {
+        other.pimpl = nullptr;
+        other._status_code = 0;
+    }
+
+    HttpResponse &HttpResponse::operator=(HttpResponse &&other) noexcept
+    {
+        if (this != &other)
+        {
+            delete pimpl;
+            _version = std::move(other._version);
+            _status_code = other._status_code;
+            _reason_phrase = std::move(other._reason_phrase);
+            _headers = std::move(other._headers);
+            pimpl = other.pimpl;
+
+            other.pimpl = nullptr;
+            other._status_code = 0;
+        }
+
+        return *this;
+    }
 
     HttpResponse::~HttpResponse() { delete pimpl; }
 
@@ -73,39 +108,45 @@ namespace http
         bool is_stream_closed = false;
     };
 
-    HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(WriterFunction writer)
+    HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream()
+        : pimpl(new Impl())
     {
-        pimpl = new Impl();
+    }
+
+    HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(WriterFunction writer)
+        : ResponseBodyStream()
+    {
         pimpl->buffer.resize(8192); /// Placeholder value.
+        Impl *stream_state = pimpl;
         pimpl->data_stream.set_stream_updater(
-            [this, writer]()
+            [stream_state, writer]()
             {
-                long bytes_written = writer(pimpl->buffer);
+                long bytes_written = writer(stream_state->buffer);
                 if (bytes_written == -1)
                 {
-                    pimpl->is_stream_closed = true;
+                    stream_state->is_stream_closed = true;
                 }
                 else
                 {
-                    pimpl->buffer_size += bytes_written;
+                    stream_state->buffer_size += bytes_written;
                 }
             });
 
         pimpl->data_stream.set_stream_view_provider(
-            [this]()
+            [stream_state]()
             {
-                pimpl->current_view.data = pimpl->buffer.data();
-                pimpl->current_view.size = pimpl->buffer_size;
-                pimpl->current_view.cursor = pimpl->buffer_cursor;
-                pimpl->current_view.is_closed = pimpl->is_stream_closed;
-                return pimpl->current_view;
+                stream_state->current_view.data = stream_state->buffer.data();
+                stream_state->current_view.size = stream_state->buffer_size;
+                stream_state->current_view.cursor = stream_state->buffer_cursor;
+                stream_state->current_view.is_closed = stream_state->is_stream_closed;
+                return stream_state->current_view;
             });
 
         pimpl->data_stream.set_cursor_advancer(
-            [this](size_t bytes)
+            [stream_state](size_t bytes)
             {
-                pimpl->buffer_cursor += bytes;
-                if (pimpl->buffer_cursor > pimpl->buffer_size)
+                stream_state->buffer_cursor += bytes;
+                if (stream_state->buffer_cursor > stream_state->buffer_size)
                 {
                     throw std::overflow_error("ResponseBodyStream: Cursor advanced beyond buffer size.");
                 }
@@ -122,11 +163,28 @@ namespace http
                 {
                     return -1; // Indicate end of stream
                 }
-                size_t bytes_to_write = std::min(bytes_left, buffer.size());
-                std::memcpy(buffer.data(), data.data(), bytes_to_write);
-                bytes_left -= bytes_to_write;
-                return static_cast<long>(bytes_to_write);
+                size_t chunk_size = std::min(bytes_left, static_cast<size_t>(8192)); // Placeholder chunk size
+                bytes_left -= chunk_size;
+                return chunk_size;
             });
+    }
+
+    HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(ResponseBodyStream &&other) noexcept
+        : pimpl(other.pimpl)
+    {
+        other.pimpl = nullptr;
+    }
+
+    HttpResponse::Impl::ResponseBodyStream &HttpResponse::Impl::ResponseBodyStream::operator=(ResponseBodyStream &&other) noexcept
+    {
+        if (this != &other)
+        {
+            delete pimpl;
+            pimpl = other.pimpl;
+            other.pimpl = nullptr;
+        }
+
+        return *this;
     }
 
     HttpResponse::Impl::ResponseBodyStream::~ResponseBodyStream()
