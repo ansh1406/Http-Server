@@ -52,6 +52,8 @@ namespace http
         static size_t encode_response_status_line(const std::string &version, int status_code, const std::string &reason_phrase, std::vector<char> &buffer, size_t cursor = 0);
 
         static size_t encode_response_header(const std::string &header, const std::string &value, std::vector<char> &buffer, size_t cursor = 0);
+
+        static size_t encode_end_of_headers(std::vector<char> &buffer, size_t cursor = 0);
     };
 }
 

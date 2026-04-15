@@ -199,3 +199,16 @@ size_t http::HttpParser::encode_response_header(const std::string &header, const
 
     return header.size() + value.size() + 2;
 }
+
+size_t http::HttpParser::encode_end_of_headers(std::vector<char> &buffer, size_t cursor)
+{
+    if (cursor + 2 > buffer.size())
+    {
+        return 0;
+    }
+
+    buffer[cursor++] = '\r';
+    buffer[cursor++] = '\n';
+
+    return 2;
+}
