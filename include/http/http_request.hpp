@@ -7,7 +7,7 @@
 #include <string>
 #include <map>
 #include <vector>
-
+#include <stdexcept>
 namespace http
 {
     class HttpRequest
