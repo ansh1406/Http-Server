@@ -552,7 +552,7 @@ void http::HttpConnection::send_to_client()
 {
     try
     {
-        size_t bytes_sent = client_socket.send_data(buffer, buffer_cursor);
+        size_t bytes_sent = client_socket.send_data(buffer, buffer_cursor, buffer_size);
         if (bytes_sent > 0)
         {
             last_activity_time = time(nullptr);

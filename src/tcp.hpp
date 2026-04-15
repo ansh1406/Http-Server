@@ -125,7 +125,7 @@ namespace tcp
         {
             return socket_fd.fd();
         }
-        size_t send_data(const std::vector<char> &data, size_t start_pos);
+        size_t send_data(const std::vector<char> &data, size_t start_pos, size_t end_pos);
         size_t receive_data(std::vector<char> &buffer, size_t buffer_cursor, bool read_once = false);
 
         void set_socket_blocking(time_t blocking_timeout_in_milliseconds = 0);

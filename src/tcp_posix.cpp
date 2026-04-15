@@ -143,13 +143,23 @@ std::vector<tcp::ConnectionSocket> tcp::ListeningSocket::accept_connections()
     }
 }
 
-size_t tcp::ConnectionSocket::send_data(const std::vector<char> &data, size_t start_pos)
+size_t tcp::ConnectionSocket::send_data(const std::vector<char> &data, size_t start_pos, size_t end_pos)
 {
-    ssize_t total_sent = 0;
-    ssize_t data_length = data.size() - start_pos;
-    const char *data_ptr = data.data() + start_pos;
     try
     {
+        if (end_pos > data.size())
+        {
+            throw tcp::exceptions::CanNotSendData{"TCP: Send range exceeds buffer size."};
+        }
+        if (start_pos >= end_pos)
+        {
+            return 0;
+        }
+
+        ssize_t total_sent = 0;
+        ssize_t data_length = static_cast<ssize_t>(end_pos - start_pos);
+        const char *data_ptr = data.data() + start_pos;
+
         while (total_sent < data_length)
         {
             ssize_t bytes_sent = send(socket_fd.fd(), data_ptr + total_sent, data_length - total_sent, 0);

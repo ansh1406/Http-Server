@@ -174,13 +174,23 @@ namespace tcp
         }
     }
 
-    size_t ConnectionSocket::send_data(const std::vector<char> &data, size_t start_pos)
+    size_t ConnectionSocket::send_data(const std::vector<char> &data, size_t start_pos, size_t end_pos)
     {
-        int total_sent = 0;
-        int data_length = static_cast<int>(data.size() - start_pos);
-        const char *data_ptr = data.data() + start_pos;
         try
         {
+            if (end_pos > data.size())
+            {
+                throw exceptions::CanNotSendData{"TCP: Send range exceeds buffer size."};
+            }
+            if (start_pos >= end_pos)
+            {
+                return 0;
+            }
+
+            int total_sent = 0;
+            int data_length = static_cast<int>(end_pos - start_pos);
+            const char *data_ptr = data.data() + start_pos;
+
             while (total_sent < data_length)
             {
                 int bytes_sent = send(socket_fd.fd(), data_ptr + total_sent, data_length - total_sent, 0);
