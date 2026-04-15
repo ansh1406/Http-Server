@@ -101,6 +101,11 @@ namespace http
 
         void send_response();
 
+        int fd() const noexcept
+        {
+            return client_socket.fd();
+        }
+
         void set_peer_idle() noexcept
         {
             peer_status = ConnectionStatus::IDLE;
