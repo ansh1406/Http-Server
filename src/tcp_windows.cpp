@@ -5,6 +5,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -213,28 +214,29 @@ namespace tcp
             size_t total_received = 0;
             while (true)
             {
-                int remaining_space = (buffer.size() - buffer_cursor) - total_received;
-                if (remaining_space <= 0)
+                if (buffer_cursor + total_received >= buffer.size())
                 {
                     break;
                 }
 
-                long bytes_received = recv(socket_fd.fd(), buffer.data() + buffer_cursor + total_received, remaining_space, 0);
+                size_t remaining_space = buffer.size() - buffer_cursor - total_received;
+                int bytes_to_read = static_cast<int>(std::min(remaining_space, static_cast<size_t>(INT_MAX)));
+                int bytes_received = recv(socket_fd.fd(), buffer.data() + buffer_cursor + total_received, bytes_to_read, 0);
 
                 if (bytes_received == 0)
                 {
                     throw tcp::exceptions::CanNotReceiveData{"Connection closed by peer."};
                 }
-                if (bytes_received < 0)
+                if (bytes_received == SOCKET_ERROR)
                 {
-                    int err = errno;
-                    if (err == EAGAIN || err == EWOULDBLOCK)
+                    int err = WSAGetLastError();
+                    if (err == WSAEWOULDBLOCK)
                     {
                         break;
                     }
                     else
                     {
-                        throw tcp::exceptions::CanNotReceiveData{std::string(strerror(err))};
+                        throw tcp::exceptions::CanNotReceiveData{get_error_message()};
                     }
                 }
                 total_received += bytes_received;
