@@ -12,6 +12,23 @@ namespace http
 
     HttpRequest::RequestBodyStream::RequestBodyStream() : pimpl(new Impl()) {}
 
+    HttpRequest::RequestBodyStream::RequestBodyStream(RequestBodyStream &&other) noexcept : pimpl(other.pimpl)
+    {
+        other.pimpl = nullptr;
+    }
+
+    HttpRequest::RequestBodyStream &HttpRequest::RequestBodyStream::operator=(RequestBodyStream &&other) noexcept
+    {
+        if (this != &other)
+        {
+            delete pimpl;
+            pimpl = other.pimpl;
+            other.pimpl = nullptr;
+        }
+
+        return *this;
+    }
+
     HttpRequest::RequestBodyStream::~RequestBodyStream() { delete pimpl; }
 
     size_t HttpRequest::RequestBodyStream::get_next(std::vector<char> &buffer, size_t buffer_cursor)
@@ -39,6 +56,33 @@ namespace http
     HttpRequest HttpRequestBuilder::build()
     {
         return HttpRequest();
+    }
+
+    HttpRequest::HttpRequest(HttpRequest &&other) noexcept
+        : _ip(std::move(other._ip)),
+          _port(std::move(other._port)),
+          _method(std::move(other._method)),
+          _uri(std::move(other._uri)),
+          _version(std::move(other._version)),
+          _headers(std::move(other._headers)),
+          _body(std::move(other._body))
+    {
+    }
+
+    HttpRequest &HttpRequest::operator=(HttpRequest &&other) noexcept
+    {
+        if (this != &other)
+        {
+            _ip = std::move(other._ip);
+            _port = std::move(other._port);
+            _method = std::move(other._method);
+            _uri = std::move(other._uri);
+            _version = std::move(other._version);
+            _headers = std::move(other._headers);
+            _body = std::move(other._body);
+        }
+
+        return *this;
     }
 
     void HttpRequestBuilder::set_ip(HttpRequest &request, const std::string &ip)
@@ -88,7 +132,7 @@ namespace http
         return HttpRequest::RequestBodyStream();
     }
 
-    HttpRequest::HttpRequest() : _body(HttpRequestBuilder::build_body_stream()) {}
+    HttpRequest::HttpRequest() : _body(std::move(HttpRequestBuilder::build_body_stream())) {}
 
     const std::string &HttpRequest::ip() const noexcept { return _ip; }
     const std::string &HttpRequest::port() const noexcept { return _port; }

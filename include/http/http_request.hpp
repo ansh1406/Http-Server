@@ -29,6 +29,11 @@ namespace http
 
             ~RequestBodyStream();
 
+            RequestBodyStream(const RequestBodyStream &) = delete;
+            RequestBodyStream &operator=(const RequestBodyStream &) = delete;
+            RequestBodyStream(RequestBodyStream &&other) noexcept;
+            RequestBodyStream &operator=(RequestBodyStream &&other) noexcept;
+
             bool has_more_data() const;
             bool is_stream_closed() const;
             size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0);
@@ -56,6 +61,11 @@ namespace http
 
     public:
         ~HttpRequest() = default;
+
+        HttpRequest(const HttpRequest &) = delete;
+        HttpRequest &operator=(const HttpRequest &) = delete;
+        HttpRequest(HttpRequest &&other) noexcept;
+        HttpRequest &operator=(HttpRequest &&other) noexcept;
 
         /// @return The IP address of the client making the request as a std::string.
         const std::string &ip() const noexcept;
