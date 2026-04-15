@@ -190,7 +190,7 @@ size_t tcp::ConnectionSocket::receive_data(std::vector<char> &buffer, size_t buf
             }
 
             long bytes_received = recv(socket_fd.fd(), buffer.data() + buffer_cursor + total_received, remaining_space, 0);
-            
+
             if (bytes_received == 0)
             {
                 throw tcp::exceptions::CanNotReceiveData{"Connection closed by peer."};
@@ -208,7 +208,7 @@ size_t tcp::ConnectionSocket::receive_data(std::vector<char> &buffer, size_t buf
                 }
             }
             total_received += bytes_received;
-            if(read_once)
+            if (read_once)
             {
                 break;
             }
@@ -222,6 +222,31 @@ size_t tcp::ConnectionSocket::receive_data(std::vector<char> &buffer, size_t buf
     catch (...)
     {
         throw tcp::exceptions::CanNotReceiveData{"TCP: Unknown error while receiving data."};
+    }
+}
+
+void tcp::ConnectionSocket::set_socket_blocking(time_t blocking_timeout_in_milliseconds)
+{
+    int flags = fcntl(socket_fd.fd(), F_GETFL, 0);
+    if (flags == -1)
+        flags = 0;
+    flags &= ~O_NONBLOCK;
+    if (fcntl(socket_fd.fd(), F_SETFL, flags) < 0)
+    {
+        int err = errno;
+        throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
+    }
+
+    if (blocking_timeout_in_milliseconds > 0)
+    {
+        struct timeval timeout;
+        timeout.tv_sec = blocking_timeout_in_milliseconds / 1000;
+        timeout.tv_usec = (blocking_timeout_in_milliseconds % 1000) * 1000;
+        if (setsockopt(socket_fd.fd(), SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
+        }
     }
 }
 
