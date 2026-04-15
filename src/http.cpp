@@ -249,31 +249,49 @@ void http::HttpServer::Impl::initialize_handler_threads()
     {
         while (true)
         {
-            int conn_id;
-            {
-                std::unique_lock<std::mutex> lock(handler_mutex);
-                handler_cv.wait(lock, [this]()
-                                { return !waiting_for_handler_connections.empty(); });
-                conn_id = waiting_for_handler_connections.front();
-                waiting_for_handler_connections.pop();
-            }
-
             try
             {
-                connections.at(conn_id).handle_request(request_handler);
+                int conn_id;
                 {
-                    std::lock_guard<std::mutex> lock(response_mutex);
-                    waiting_to_send_response.push(conn_id);
+                    std::unique_lock<std::mutex> lock(handler_mutex);
+                    handler_cv.wait(lock, [this]()
+                                    { return !waiting_for_handler_connections.empty(); });
+                    conn_id = waiting_for_handler_connections.front();
+                    waiting_for_handler_connections.pop();
                 }
-                response_cv.notify_one();
-            }
-            catch (const std::exception &e)
-            {
-                /// TODO: Yet to implement.
+
+                try
+                {
+                    HttpConnection &connection = connections.at(conn_id);
+                    connection.handle_request(request_handler);
+                    if (connection.inactive)
+                    {
+                        {
+                            std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                            completed_connections.push(conn_id);
+                        }
+                        continue;
+                    }
+                    {
+                        std::lock_guard<std::mutex> lock(response_mutex);
+                        waiting_to_send_response.push(conn_id);
+                    }
+                    response_cv.notify_one();
+                }
+                catch (const std::exception &e)
+                {
+                    std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                    completed_connections.push(conn_id);
+                }
+                catch (...)
+                {
+                    std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                    completed_connections.push(conn_id);
+                }
             }
             catch (...)
             {
-                /// TODO: Yet to implement.
+                // Suppress all.
             }
         }
     };
