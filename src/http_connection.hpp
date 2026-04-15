@@ -109,6 +109,8 @@ namespace http
         void log_warning(const std::string &message) const;
         void log_error(const std::string &message) const;
 
+        void send_to_client();
+
         void reposition_buffer();
 
     public:
