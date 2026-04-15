@@ -144,14 +144,38 @@ void http::HttpServer::Impl::start_event_loop()
                     if (connection.peer_is_readable() && connection.get_current_request().get_status() < RequestStatus::HEADERS_DONE)
                     {
                         connection.read_and_build_request_head();
+                        connection.set_peer_idle();
                     }
 
                     if (connection.get_current_request().get_status() == HEADERS_DONE)
                     {
                         request_event_manager.remove_socket(conn_id);
+                        {
+                            std::lock_guard<std::mutex> lock(handler_mutex);
+                            waiting_for_handler_connections.push(conn_id);
+                        }
+                        handler_cv.notify_one();
                     }
 
-                    connection.set_peer_idle();
+                    if (connection.get_current_request().get_status() == RequestStatus::CLIENT_ERROR || connection.get_current_request().get_status() == RequestStatus::SERVER_ERROR)
+                    {
+                        request_event_manager.remove_socket(conn_id);
+                        if (connection.inactive)
+                        {
+                            {
+                                std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                                completed_connections.push(conn_id);
+                            }
+                        }
+                        else
+                        {
+                            {
+                                std::lock_guard<std::mutex> lock(response_mutex);
+                                waiting_to_send_response.push(conn_id);
+                            }
+                            response_cv.notify_one();
+                        }
+                    }
                 }
                 mark_inactive_connections();
             }
