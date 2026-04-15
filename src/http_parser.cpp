@@ -8,6 +8,8 @@
 #include <cctype>
 #include <algorithm>
 #include <unordered_set>
+#include <stdexcept>
+#include <cstring>
 
 namespace
 {
@@ -164,4 +166,36 @@ long http::HttpParser::has_content_length_header(const std::map<std::string, std
         }
     }
     return -1;
+}
+
+size_t http::HttpParser::encode_response_status_line(const std::string &version, int status_code, const std::string &reason_phrase, std::vector<char> &buffer, size_t cursor)
+{
+    std::string status_line = version + " " + std::to_string(status_code) + " " + reason_phrase + "\r\n";
+    if (status_line.size() + cursor > buffer.size())
+    {
+        return 0;
+    }
+
+    memcpy(buffer.data() + cursor, status_line.data(), status_line.size());
+    return status_line.size();
+}
+
+size_t http::HttpParser::encode_response_header(const std::string &header, const std::string &value, std::vector<char> &buffer, size_t cursor)
+{
+    if (header.size() + value.size() + cursor > buffer.size())
+    {
+        return 0;
+    }
+
+    memcpy(buffer.data() + cursor, header.data(), header.size());
+    cursor += header.size();
+
+    buffer[cursor++] = ':';
+    memcpy(buffer.data() + cursor, value.data(), value.size());
+    cursor += value.size();
+
+    buffer[cursor++] = '\r';
+    buffer[cursor++] = '\n';
+
+    return header.size() + value.size() + 2;
 }

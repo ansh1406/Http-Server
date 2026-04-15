@@ -48,6 +48,10 @@ namespace http
         /// @return Returns true if the Transfer-Encoding header is chunked, false otherwise.
         /// @throws http::exceptions::TransferEncodingWithoutChunked if the header is Transfer-Encoding but value is not chunked.
         static bool has_transfer_encoding_chunked_header(const std::map<std::string, std::string> &headers);
+
+        static size_t encode_response_status_line(const std::string &version, int status_code, const std::string &reason_phrase, std::vector<char> &buffer, size_t cursor = 0);
+
+        static size_t encode_response_header(const std::string &header, const std::string &value, std::vector<char> &buffer, size_t cursor = 0);
     };
 }
 
