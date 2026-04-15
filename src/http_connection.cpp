@@ -3,8 +3,11 @@
 #include "http_exceptions.hpp"
 #include "http_internal.hpp"
 #include "http_parser.hpp"
+#include "http_response_reader.hpp"
+#include "data_stream.hpp"
 
-#include "cstring"
+#include <cstring>
+#include <vector>
 
 http::HttpConnection::CurrentRequest::CurrentRequest() : request(HttpRequestBuilder::build()), response(), status(RequestStatus::CONNECTION_ESTABLISHED) {}
 
@@ -12,7 +15,76 @@ http::HttpConnection::HttpConnection(tcp::ConnectionSocket &&socket) : client_so
 
 void http::HttpConnection::handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept
 {
-    /// TODO: Yet to implement.
+    if (current_request.has_chunked_body && current_request.content_length != -1)
+    {
+        throw http::exceptions::BothContentLengthAndChunked();
+    }
+    if (!current_request.has_chunked_body && current_request.content_length == -1)
+    {
+        current_request.status = RequestStatus::REQUEST_READING_DONE;
+    }
+    else
+    {
+        client_socket.set_socket_blocking(100); // 100 is placeholder value.
+        current_request.status = RequestStatus::READING_BODY;
+    }
+
+    DataStream body_stream;
+
+    body_stream.set_stream_updater(
+        [this]()
+        {
+            if (buffer_cursor == buffer_size)
+            {
+                buffer_cursor = 0;
+                buffer_size = 0;
+                read_from_client();
+            }
+            read_body();
+        });
+
+    body_stream.set_stream_view_provider(
+        [this]() -> DataStream::StreamView
+        {
+            DataStream::StreamView view;
+            view.data = buffer.data();
+            view.size = current_request.body_end_cursor;
+            view.cursor = current_request.body_stream_cursor;
+            view.is_closed = current_request.status == RequestStatus::REQUEST_READING_DONE || inactive;
+            view.error = current_request.status == RequestStatus::CLIENT_ERROR || current_request.status == RequestStatus::SERVER_ERROR;
+            return view;
+        });
+
+    body_stream.set_cursor_advancer(
+        [this](size_t bytes)
+        {
+            current_request.body_stream_cursor += bytes;
+
+            if (current_request.body_stream_cursor == current_request.body_end_cursor)
+            {
+                current_request.body_stream_cursor = 0;
+                current_request.body_end_cursor = 0;
+            }
+        });
+
+    HttpRequestBuilder::set_body_stream(current_request.request, std::move(body_stream));
+
+    try
+    {
+        request_handler(current_request.request, current_request.response);
+    }
+    catch (const std::exception &e)
+    {
+        log_error(std::string("Error handling request: ") + e.what());
+        current_request.status = RequestStatus::SERVER_ERROR;
+        current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+    }
+    catch (...)
+    {
+        log_error("Unknown error handling request.");
+        current_request.status = RequestStatus::SERVER_ERROR;
+        current_request.response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
+    }
 }
 
 void http::HttpConnection::send_response()
@@ -230,6 +302,11 @@ void http::HttpConnection::read_headers()
 
 void http::HttpConnection::read_body()
 {
+    if (current_request.status == RequestStatus::REQUEST_READING_DONE)
+    {
+        return;
+    }
+
     if (current_request.has_chunked_body)
     {
         if (current_request.remaining_content_length == 0)
@@ -253,6 +330,7 @@ void http::HttpConnection::read_body()
             if (current_request.remaining_content_length == 0)
             {
                 buffer_cursor += 2; // To skip the \r\n after chunk data
+                read_body();
             }
         }
     }
@@ -272,8 +350,7 @@ long http::HttpConnection::read_fixed_body()
 {
     size_t bytes_to_read = std::min((size_t)(buffer.size() - buffer_cursor), (size_t)current_request.remaining_content_length);
     buffer_cursor += bytes_to_read;
-    current_request.body_cursor += bytes_to_read;
-    current_request.remaining_content_length -= bytes_to_read;
+    return bytes_to_read;
 }
 
 long http::HttpConnection::read_chunksize_line() // For chunked transfer encoding
@@ -293,20 +370,14 @@ long http::HttpConnection::read_chunksize_line() // For chunked transfer encodin
                 }
             }
             if (!found_end_of_chunk_size_line)
-                return;
+                return -1;
 
             std::string chunk_size_str(buffer.begin() + buffer_cursor, buffer.begin() + pos);
             size_t chunk_size = std::stoul(chunk_size_str, nullptr, 16);
 
             buffer_cursor = pos + 2;
 
-            if (chunk_size == 0)
-            {
-                current_request.status = RequestStatus::REQUEST_READING_DONE;
-                return;
-            }
-
-            current_request.remaining_content_length = chunk_size;
+            return chunk_size;
         }
     }
     catch (...)
@@ -318,15 +389,9 @@ long http::HttpConnection::read_chunksize_line() // For chunked transfer encodin
 long http::HttpConnection::read_body_chunk()
 {
     size_t bytes_to_read = std::min((size_t)(buffer.size() - buffer_cursor), (size_t)current_request.remaining_content_length);
-    memmove(buffer.data() + current_request.body_cursor, buffer.data() + buffer_cursor, bytes_to_read);
+    memmove(buffer.data() + current_request.body_end_cursor, buffer.data() + buffer_cursor, bytes_to_read);
     buffer_cursor += bytes_to_read;
-    current_request.body_cursor += bytes_to_read;
-    current_request.remaining_content_length -= bytes_to_read;
-
-    if (current_request.remaining_content_length == 0)
-    {
-        buffer_cursor += 2; // Skip the trailing \r\n after each chunk
-    }
+    return bytes_to_read;
 }
 
 void http::HttpConnection::read_from_client()
