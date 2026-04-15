@@ -56,6 +56,10 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
     {
         pimpl = new Impl(std::move(tcp::ListeningSocket(_config.port, _config.max_pending_connections)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), _config, handler);
         pimpl->log_info("Server created on port:" + std::to_string(_config.port));
+
+        size_t handler_thread_count = std::min(std::thread::hardware_concurrency() * 2, 8U);
+        pimpl->handler_threads.resize(handler_thread_count);
+        pimpl->initialize_handler_threads();
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {
@@ -197,5 +201,47 @@ void http::HttpServer::Impl::accept_new_connections()
         int conn_id = request_event_manager.register_for_read(conn.fd());
         connections.insert({conn_id, http::HttpConnection(std::move(conn))});
         log_info("Connection accepted: " + connections.at(conn_id).get_ip() + ":" + std::to_string(connections.at(conn_id).get_port()));
+    }
+}
+
+void http::HttpServer::Impl::initialize_handler_threads()
+{
+
+    handler_thread_function = [this]()
+    {
+        while (true)
+        {
+            int conn_id;
+            {
+                std::unique_lock<std::mutex> lock(handler_mutex);
+                handler_cv.wait(lock, [this]()
+                                { return !waiting_for_handler_connections.empty(); });
+                conn_id = waiting_for_handler_connections.front();
+                waiting_for_handler_connections.pop();
+            }
+
+            try
+            {
+                connections.at(conn_id).handle_request(request_handler);
+                {
+                    std::lock_guard<std::mutex> lock(response_mutex);
+                    response_sending_connections.push_back(conn_id);
+                }
+                response_cv.notify_one();
+            }
+            catch (const std::exception &e)
+            {
+                /// TODO: Yet to implement.
+            }
+            catch (...)
+            {
+                /// TODO: Yet to implement.
+            }
+        }
+    };
+
+    for (size_t i = 0; i < handler_threads.size(); ++i)
+    {
+        handler_threads[i] = std::thread(handler_thread_function);
     }
 }
