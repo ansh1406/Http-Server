@@ -16,20 +16,21 @@ namespace http
 {
     enum RequestStatus
     {
-        CONNECTION_ESTABLISHED = 0,
-        READING_REQUEST_LINE = 1,
-        REQUEST_LINE_DONE = 2,
-        READING_HEADERS = 3,
-        HEADERS_DONE = 4,
-        READING_BODY = 5,
-        REQUEST_READING_DONE = 6,
-        REQUEST_HANDLING_DONE = 7,
-        SENDING_STATUS_LINE = 8,
-        SENDING_HEADERS = 9,
-        SENDING_BODY = 10,
-        COMPLETED = 11,
-        CLIENT_ERROR = 12,
-        SERVER_ERROR = 13
+        CONNECTION_ESTABLISHED,
+        READING_REQUEST_LINE,
+        REQUEST_LINE_DONE,
+        READING_HEADERS,
+        HEADERS_DONE,
+        READING_BODY,
+        REQUEST_READING_DONE,
+        REQUEST_HANDLING_DONE,
+        SENDING_STATUS_LINE,
+        SENDING_HEADERS,
+        SENDING_RESPONSE_HEAD_DONE,
+        SENDING_BODY,
+        COMPLETED,
+        CLIENT_ERROR,
+        SERVER_ERROR
     };
 
     enum ConnectionStatus
