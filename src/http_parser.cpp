@@ -137,8 +137,32 @@ bool http::HttpParser::has_transfer_encoding_chunked_header(const std::map<std::
     if (it != headers.end())
     {
         const std::string &value = it->second;
-        size_t chunked_pos = value.find("chunked");
-        if (chunked_pos != std::string::npos)
+
+        size_t last_comma = value.rfind(',');
+
+        std::string last_token;
+        if (last_comma == std::string::npos)
+        {
+            last_token = value;
+        }
+        else
+        {
+            last_token = value.substr(last_comma + 1);
+        }
+
+        size_t start = last_token.find_first_not_of(" \t");
+        size_t end = last_token.find_last_not_of(" \t");
+
+        if (start != std::string::npos)
+        {
+            last_token = last_token.substr(start, end - start + 1);
+        }
+        else
+        {
+            last_token.clear();
+        }
+
+        if (last_token == "chunked")
         {
             return true;
         }
