@@ -57,7 +57,7 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
         pimpl = new Impl(std::move(tcp::ListeningSocket(_config.port, _config.max_pending_connections)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), _config, handler);
         pimpl->log_info("Server created on port:" + std::to_string(_config.port));
 
-        size_t handler_thread_count = std::min(std::thread::hardware_concurrency() * 2, 8U);
+        size_t handler_thread_count = std::max(std::thread::hardware_concurrency() * 2, 8U);
         pimpl->handler_threads.resize(handler_thread_count);
         pimpl->initialize_handler_threads();
 
