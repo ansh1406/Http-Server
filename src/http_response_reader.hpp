@@ -7,7 +7,7 @@ namespace http
 {
     struct HttpResponseReader
     {
-        static long read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer = 0);
+        static long read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer = 0, size_t max_size = static_cast<size_t>(-1));
     };
 }
 

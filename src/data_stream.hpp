@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string>
 #include <cstring>
+#include <limits>
 
 namespace http
 {
@@ -85,7 +86,7 @@ namespace http
             return view.is_closed;
         }
 
-        size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0)
+        size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0, size_t max_size = std::numeric_limits<size_t>::max())
         {
             try
             {
@@ -122,7 +123,13 @@ namespace http
                     throw std::out_of_range("DataStream: Buffer cursor is out of bounds.");
                 }
 
+                if (max_size == 0)
+                {
+                    return 0;
+                }
+
                 size_t bytes_to_read = std::min(buffer.size() - buffer_cursor, available_data_size - current_cursor);
+                bytes_to_read = std::min(bytes_to_read, max_size);
 
                 std::memcpy(buffer.data() + buffer_cursor, view.data + current_cursor, bytes_to_read);
                 advance_cursor(bytes_to_read);

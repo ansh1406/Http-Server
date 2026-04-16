@@ -31,11 +31,11 @@ namespace http
 
     HttpRequest::RequestBodyStream::~RequestBodyStream() { delete pimpl; }
 
-    size_t HttpRequest::RequestBodyStream::get_next(std::vector<char> &buffer, size_t buffer_cursor)
+    size_t HttpRequest::RequestBodyStream::get_next(std::vector<char> &buffer, size_t buffer_cursor, size_t max_size)
     {
         try
         {
-            return pimpl->data_stream.get_next(buffer, buffer_cursor);
+            return pimpl->data_stream.get_next(buffer, buffer_cursor, max_size);
         }
         catch (...)
         {

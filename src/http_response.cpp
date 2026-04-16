@@ -214,12 +214,12 @@ namespace http
             });
     }
 
-    long HttpResponseReader::read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer)
+    long HttpResponseReader::read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer, size_t max_size)
     {
         if (response.pimpl->body_stream.pimpl->data_stream.is_stream_closed())
         {
             return -1; // Indicate end of stream
         }
-        return response.pimpl->body_stream.pimpl->data_stream.get_next(buffer, buffer_pointer);
+        return response.pimpl->body_stream.pimpl->data_stream.get_next(buffer, buffer_pointer, max_size);
     }
 }
