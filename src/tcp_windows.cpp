@@ -1,5 +1,9 @@
 #ifdef _WIN32
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include "tcp.hpp"
 
 #include <winsock2.h>
