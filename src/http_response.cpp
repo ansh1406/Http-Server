@@ -202,6 +202,11 @@ namespace http
             [this](size_t bytes)
             {
                 this->buffer_cursor += bytes;
+                if(this->buffer_cursor == this->buffer_size)
+                {
+                    this->buffer_cursor = 0;
+                    this->buffer_size = 0;
+                }
                 if (this->buffer_cursor > this->buffer_size)
                 {
                     throw std::overflow_error("ResponseBodyStream: Cursor advanced beyond buffer size.");
