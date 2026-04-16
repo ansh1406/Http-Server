@@ -125,9 +125,13 @@ namespace tcp
         {
             return socket_fd.fd();
         }
+        /// Sends bytes in the half-open range [start_pos, end_pos) from data.
         size_t send_data(const std::vector<char> &data, size_t start_pos, size_t end_pos);
+        /// Receives bytes into buffer starting at buffer_cursor.
+        /// If read_once is true, performs at most one underlying socket read.
         size_t receive_data(std::vector<char> &buffer, size_t buffer_cursor, bool read_once = false);
 
+        /// Enables blocking mode; optional timeout is in milliseconds (0 means default blocking behavior).
         void set_socket_blocking(time_t blocking_timeout_in_milliseconds = 0);
         void set_socket_non_blocking();
 
@@ -169,7 +173,7 @@ namespace tcp
             return socket_fd.fd();
         }
         /// @brief Accepts an incoming connection and returns a ConnectionSocket object
-        /// @return ConnectionSocket representing the accepted connection
+        /// @return Newly accepted connections available at call time.
         std::vector<ConnectionSocket> accept_connections();
 
         /// @return IP address the socket is bound to as a string
