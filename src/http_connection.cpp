@@ -102,7 +102,7 @@ void http::HttpConnection::read_and_build_request_head()
 {
     try
     {
-        read_from_client();
+
         if (current_request.status == RequestStatus::CONNECTION_ESTABLISHED)
         {
             HttpRequestBuilder::set_ip(current_request.request, get_ip());
@@ -110,6 +110,9 @@ void http::HttpConnection::read_and_build_request_head()
             current_request.status = RequestStatus::READING_REQUEST_LINE;
             buffer.resize(std::max(sizes::MAX_HEADER_SIZE, sizes::MAX_REQUEST_LINE_SIZE));
         }
+
+        read_from_client();
+
         if (current_request.status == RequestStatus::READING_REQUEST_LINE)
         {
             read_request_line();
