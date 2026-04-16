@@ -34,6 +34,8 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
             current_request.status = RequestStatus::READING_BODY;
         }
 
+        log_info(current_request.request.method() + " " + current_request.request.uri());
+
         DataStream body_stream;
 
         body_stream.set_stream_updater(
@@ -430,130 +432,144 @@ void http::HttpConnection::read_from_client()
 
 void http::HttpConnection::send_response()
 {
-    if (current_request.status == RequestStatus::CLIENT_ERROR || current_request.status == RequestStatus::SERVER_ERROR || current_request.status == RequestStatus::REQUEST_HANDLING_DONE)
+    try
     {
-        client_socket.set_socket_non_blocking();
-        buffer_size = 0;
-        buffer_cursor = 0;
-        current_response.response.set_header("Connection", "close");
-        current_request.status = RequestStatus::SENDING_STATUS_LINE;
-    }
-
-    if (current_request.status == RequestStatus::SENDING_STATUS_LINE)
-    {
-        size_t bytes_written = HttpParser::encode_response_status_line(current_response.response.version(), current_response.response.status_code(), current_response.response.reason_phrase(), buffer, buffer_size);
-        if (bytes_written != 0)
+        if (current_request.status == RequestStatus::CLIENT_ERROR || current_request.status == RequestStatus::SERVER_ERROR || current_request.status == RequestStatus::REQUEST_HANDLING_DONE)
         {
-            buffer_size += bytes_written;
-            current_request.status = RequestStatus::SENDING_HEADERS;
-            current_response.currently_sending_header = current_response.response.headers().begin();
+            client_socket.set_socket_non_blocking();
+            buffer_size = 0;
+            buffer_cursor = 0;
+            current_response.response.set_header("Connection", "close");
+            current_request.status = RequestStatus::SENDING_STATUS_LINE;
         }
-        else
-        {
-            log_error("Status line too large.");
-            throw http::exceptions::StautsLineTooLong();
-        }
-    }
 
-    if (current_request.status == RequestStatus::SENDING_HEADERS)
-    {
-        while (current_response.currently_sending_header != current_response.response.headers().end())
+        if (current_request.status == RequestStatus::SENDING_STATUS_LINE)
         {
-            size_t bytes_written = HttpParser::encode_response_header(current_response.currently_sending_header->first, current_response.currently_sending_header->second, buffer, buffer_size);
+            size_t bytes_written = HttpParser::encode_response_status_line(current_response.response.version(), current_response.response.status_code(), current_response.response.reason_phrase(), buffer, buffer_size);
             if (bytes_written != 0)
             {
                 buffer_size += bytes_written;
-                ++current_response.currently_sending_header;
+                current_request.status = RequestStatus::SENDING_HEADERS;
+                current_response.currently_sending_header = current_response.response.headers().begin();
             }
             else
             {
-                break;
+                log_error("Status line too large.");
+                throw http::exceptions::StautsLineTooLong();
             }
         }
 
-        if (current_response.currently_sending_header == current_response.response.headers().end())
+        if (current_request.status == RequestStatus::SENDING_HEADERS)
         {
-            size_t bytes_written = HttpParser::encode_end_of_headers(buffer, buffer_size);
-            if (bytes_written != 0)
+            while (current_response.currently_sending_header != current_response.response.headers().end())
             {
-                buffer_size += bytes_written;
-                current_request.status = RequestStatus::HEADERS_DONE;
-            }
-        }
-    }
-
-    if (current_request.status == RequestStatus::HEADERS_DONE)
-    {
-        long content_length = HttpParser::has_content_length_header(current_response.response.headers());
-        bool has_chunked_encoding = HttpParser::has_transfer_encoding_chunked_header(current_response.response.headers());
-
-        if (content_length != -1 && has_chunked_encoding)
-        {
-            throw http::exceptions::BothContentLengthAndChunked();
-        }
-
-        if (content_length == -1 && !has_chunked_encoding)
-        {
-            current_request.status = RequestStatus::COMPLETED;
-        }
-        else
-        {
-            current_response.has_chunked_body = has_chunked_encoding;
-            current_response.content_length = content_length;
-            current_response.remaining_content_length = content_length;
-            current_request.status = RequestStatus::SENDING_BODY;
-        }
-    }
-
-    if (current_request.status == RequestStatus::SENDING_BODY)
-    {
-        if (current_response.has_fixed_length_body())
-        {
-            long bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size);
-            if (bytes_read == -1)
-            {
-                if (current_response.remaining_content_length != 0)
+                size_t bytes_written = HttpParser::encode_response_header(current_response.currently_sending_header->first, current_response.currently_sending_header->second, buffer, buffer_size);
+                if (bytes_written != 0)
                 {
-                    throw http::exceptions::UnexpectedEndOfStream();
+                    buffer_size += bytes_written;
+                    ++current_response.currently_sending_header;
+                }
+                else
+                {
+                    break;
                 }
             }
-            buffer_size += bytes_read;
-            current_response.remaining_content_length -= bytes_read;
-            if (current_response.remaining_content_length == 0)
+
+            if (current_response.currently_sending_header == current_response.response.headers().end())
             {
-                current_request.status = RequestStatus::SENDING_BUFFER_FLUSHING;
+                size_t bytes_written = HttpParser::encode_end_of_headers(buffer, buffer_size);
+                if (bytes_written != 0)
+                {
+                    buffer_size += bytes_written;
+                    current_request.status = RequestStatus::HEADERS_DONE;
+                }
             }
         }
-        else if (current_response.has_chunked_body)
+
+        if (current_request.status == RequestStatus::HEADERS_DONE)
         {
-            // Read only if a certain minimum buffer size is available.
-            if (buffer.size() - buffer_size > 128) // Placeholder
+            long content_length = HttpParser::has_content_length_header(current_response.response.headers());
+            bool has_chunked_encoding = HttpParser::has_transfer_encoding_chunked_header(current_response.response.headers());
+
+            if (content_length != -1 && has_chunked_encoding)
             {
-                size_t maximum_chunk_size = buffer.size() - buffer_size - 6 - 2;                                                                // 6 is Empty space for chunk size in hex and \r\n, 2 is for the ending \r\n after chunk data.
-                long bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size + 6, maximum_chunk_size); // 6 is Empty space for chunk size in hex and \r\n.
-                if (bytes_read > 0)
-                {
-                    size_t bytes_encoded = HttpParser::encode_chunksize_line(bytes_read, 4, buffer, buffer_size); // in HHHH format.
-                    buffer_size += bytes_read + bytes_encoded;
-                    size_t chunk_end_bytes = HttpParser::encode_chunk_end(buffer, buffer_size);
-                    buffer_size += chunk_end_bytes;
-                }
+                throw http::exceptions::BothContentLengthAndChunked();
+            }
+
+            if (content_length == -1 && !has_chunked_encoding)
+            {
+                current_request.status = RequestStatus::COMPLETED;
+            }
+            else
+            {
+                current_response.has_chunked_body = has_chunked_encoding;
+                current_response.content_length = content_length;
+                current_response.remaining_content_length = content_length;
+                current_request.status = RequestStatus::SENDING_BODY;
+            }
+        }
+
+        if (current_request.status == RequestStatus::SENDING_BODY)
+        {
+            if (current_response.has_fixed_length_body())
+            {
+                long bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size);
                 if (bytes_read == -1)
                 {
-                    size_t bytes_encoded = HttpParser::encode_chunksize_line(0, 1, buffer, buffer_size); // Last chunk with size 0.
-                    buffer_size += bytes_encoded;
-                    size_t chunk_end_bytes = HttpParser::encode_chunk_end(buffer, buffer_size);
-                    buffer_size += chunk_end_bytes;
+                    if (current_response.remaining_content_length != 0)
+                    {
+                        throw http::exceptions::UnexpectedEndOfStream();
+                    }
+                }
+                buffer_size += bytes_read;
+                current_response.remaining_content_length -= bytes_read;
+                if (current_response.remaining_content_length == 0)
+                {
                     current_request.status = RequestStatus::SENDING_BUFFER_FLUSHING;
                 }
             }
+            else if (current_response.has_chunked_body)
+            {
+                // Read only if a certain minimum buffer size is available.
+                if (buffer.size() - buffer_size > 128) // Placeholder
+                {
+                    size_t maximum_chunk_size = buffer.size() - buffer_size - 6 - 2;                                                                // 6 is Empty space for chunk size in hex and \r\n, 2 is for the ending \r\n after chunk data.
+                    long bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size + 6, maximum_chunk_size); // 6 is Empty space for chunk size in hex and \r\n.
+                    if (bytes_read > 0)
+                    {
+                        size_t bytes_encoded = HttpParser::encode_chunksize_line(bytes_read, 4, buffer, buffer_size); // in HHHH format.
+                        buffer_size += bytes_read + bytes_encoded;
+                        size_t chunk_end_bytes = HttpParser::encode_chunk_end(buffer, buffer_size);
+                        buffer_size += chunk_end_bytes;
+                    }
+                    if (bytes_read == -1)
+                    {
+                        size_t bytes_encoded = HttpParser::encode_chunksize_line(0, 1, buffer, buffer_size); // Last chunk with size 0.
+                        buffer_size += bytes_encoded;
+                        size_t chunk_end_bytes = HttpParser::encode_chunk_end(buffer, buffer_size);
+                        buffer_size += chunk_end_bytes;
+                        current_request.status = RequestStatus::SENDING_BUFFER_FLUSHING;
+                    }
+                }
+            }
+        }
+        send_to_client();
+
+        if (current_request.status == RequestStatus::SENDING_BUFFER_FLUSHING && buffer_cursor == buffer_size)
+        {
+            log_info(std::to_string(current_response.response.status_code()) + " " + current_response.response.reason_phrase());
+            current_request.status = RequestStatus::COMPLETED;
         }
     }
-    send_to_client();
-
-    if (current_request.status == RequestStatus::SENDING_BUFFER_FLUSHING && buffer_cursor == buffer_size)
+    catch (std::exception &e)
     {
-        current_request.status = RequestStatus::COMPLETED;
+        log_error(std::string("Error sending response: ") + e.what());
+        current_request.status = RequestStatus::SERVER_ERROR;
+    }
+    catch (...)
+    {
+        log_error("Unknown error sending response.");
+        current_request.status = RequestStatus::SERVER_ERROR;
     }
 }
 
