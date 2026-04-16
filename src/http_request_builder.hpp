@@ -21,9 +21,11 @@ namespace http
         static void set_uri(HttpRequest &request, const std::string &uri);
         static void set_version(HttpRequest &request, const std::string &version);
         static void set_header(HttpRequest &request, const std::string &key, const std::string &value);
+        /// Replaces request body source with a stream that takes ownership of the moved DataStream.
         static void set_body_stream(HttpRequest &request, DataStream &&data_stream);
 
         /// @brief Move the DataStream into a RequestBodyStream.
+        /// After this call, the source DataStream should be treated as moved-from.
         /// @param data_stream Source DataStream to be moved into the RequestBodyStream.
         /// @return A RequestBodyStream that takes ownership of the provided DataStream.
         static HttpRequest::RequestBodyStream build_body_stream(DataStream &&data_stream);
