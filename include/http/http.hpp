@@ -38,20 +38,26 @@ namespace http
         };
     }
 
-    /// @brief Configuration structure for the HTTP server. It contains various parameters that can be set to configure the behavior of the server, such as the port to listen on, maximum pending connections, maximum concurrent connections, timeout for inactive connections, and whether to enable external logging.
-    /// @param port The port number on which the HTTP server will listen for incoming connections. It is an unsigned short integer. Default is 8080 for this library.
-    /// @param max_pending_connections The maximum number of pending connections that the server can have in its queue. This parameter controls how many incoming connections can be waiting to be accepted before the server starts rejecting new connections. It is an unsigned integer. Default is 128 for this library.
-    /// @param max_concurrent_connections The maximum number of concurrent connections that the server can handle at any given time. It is an unsigned integer. If the number of active connections exceeds this limit, the server may start rejecting new connections until some of the existing connections are closed. Default is 128 for this library.
-    /// @param inactive_connection_timeout_in_seconds The timeout duration in seconds for inactive connections. If a connection remains idle (i.e., no data is sent or received) for longer than this duration, the server may close the connection to free up resources. It is a time_t value. Default is 60 seconds for this library.
-    /// @param enable_logging A boolean flag indicating whether to enable logging. If set to true, the server will log information about incoming requests, responses, and other events. If set to false, the server will not log any information. The default value is false. Default is false for this library.
-    /// @param external_logging A boolean flag indicating whether to enable external logging. If set to true, the server will log information about incoming requests, responses, and other events to an external logging system. If set to false, the server will log to stdout and stderr. Default is false for this library.
+    /// Configuration structure for the HTTP server. It contains various parameters that can be set to configure the behavior of the server, such as the port to listen on, maximum pending connections, maximum concurrent connections, timeout for inactive connections, and whether to enable external logging.
+    ///  - port The port number on which the HTTP server will listen for incoming connections. It is an unsigned short integer. Default is 8080 for this library.
+    ///  - max_pending_connections The maximum number of pending connections that the server can have in its queue. This parameter controls how many incoming connections can be waiting to be accepted before the server starts rejecting new connections. It is an unsigned integer. Default is 128 for this library.
+    ///  - max_concurrent_connections The maximum number of concurrent connections that the server can handle at any given time. It is an unsigned integer. If the number of active connections exceeds this limit, the server may start rejecting new connections until some of the existing connections are closed. Default is 128 for this library.
+    ///  - inactive_connection_timeout_in_seconds The timeout duration in seconds for inactive connections. If a connection remains idle (i.e., no data is sent or received) for longer than this duration, the server may close the connection to free up resources. It is a time_t value. Default is 60 seconds for this library.
+    ///  - enable_logging A boolean flag indicating whether to enable logging. If set to true, the server will log information about incoming requests, responses, and other events. If set to false, the server will not log any information. The default value is false. Default is false for this library.
+    ///  - external_logging A boolean flag indicating whether to enable external logging. If set to true, the server will log information about incoming requests, responses, and other events to an external logging system. If set to false, the server will log to stdout and stderr. Default is false for this library.
     struct HttpServerConfig
     {
+        /// Port the server listens on.
         unsigned short port = 8080;
+        /// Maximum queued connections waiting to be accepted.
         unsigned int max_pending_connections = 128;
+        /// Maximum concurrent active connections.
         unsigned int max_concurrent_connections = 128;
+        /// Idle timeout for a connection, in seconds.
         time_t inactive_connection_timeout_in_seconds = 60;
+        /// Enables built-in logging.
         bool enable_logging = false;
+        /// Sends logs to an external sink instead of stdout/stderr.
         bool external_logging = false;
     };
 
@@ -86,7 +92,7 @@ namespace http
 
 /*
 A simple implementation of an HTTP server using this library:
-#include "http.hpp"
+#include "http/http.hpp"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -95,18 +101,20 @@ int main()
 {
     try
     {
-        http::HttpServerConfig config{8080, 100, 100, 60, true, false};
+        http::HttpServerConfig config;
+        config.port = 8080;
+
         http::HttpServer server(config, [](const http::HttpRequest &req, http::HttpResponse &res) {
             if (req.method == "GET" && req.uri == "/hello") {
                 res.set_status_code(200);
                 res.set_status_message("OK");
-                res.add_header("Content-Type", "text/plain");
+                res.set_header("Content-Type", "text/plain");
                 std::string body = "Hello, World!";
                 res.set_body(std::vector<char>(body.begin(), body.end()));
             } else {
                 res.set_status_code(404);
                 res.set_status_message("Not Found");
-                res.add_header("Content-Type", "text/plain");
+                res.set_header("Content-Type", "text/plain");
                 std::string body = "Not Found";
                 res.set_body(std::vector<char>(body.begin(), body.end()));
             }

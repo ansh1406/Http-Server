@@ -6,114 +6,111 @@
 #include "http/http_constants.hpp"
 
 #include <cctype>
+#include <algorithm>
+#include <unordered_set>
+#include <stdexcept>
+#include <cstring>
 
-http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<char> &raw_request, size_t &pos)
+namespace
+{
+    const std::unordered_set<std::string> repeatable_headers = {
+        http::headers::ACCEPT,
+        http::headers::ACCEPT_ENCODING,
+        http::headers::ACCEPT_LANGUAGE,
+        http::headers::CACHE_CONTROL,
+        http::headers::CONNECTION,
+        http::headers::VIA,
+        http::headers::WARNING,
+        http::headers::IF_MATCH,
+        http::headers::IF_NONE_MATCH,
+    };
+}
+
+http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<char> &raw_request, size_t cursor)
 {
     http::HttpRequestLine request_line;
-    size_t start = pos;
+    size_t start = cursor;
     // Find method
-    while (pos < raw_request.size() && raw_request[pos] != ' ')
+    while (cursor < raw_request.size() && raw_request[cursor] != ' ')
     {
-        pos++;
+        cursor++;
     }
-    request_line.method = std::string(raw_request.begin() + start, raw_request.begin() + pos);
-    pos++;
+    request_line.method = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
+    cursor++;
 
     // Find URI
-    start = pos;
-    while (pos < raw_request.size() && raw_request[pos] != ' ')
+    start = cursor;
+    while (cursor < raw_request.size() && raw_request[cursor] != ' ')
     {
-        pos++;
+        cursor++;
     }
-    request_line.uri = std::string(raw_request.begin() + start, raw_request.begin() + pos);
-    pos++;
+    request_line.uri = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
+    cursor++;
 
     // Find HTTP version
-    start = pos;
-    while (pos < raw_request.size() && !(raw_request[pos] == '\r' && raw_request[pos + 1] == '\n'))
+    start = cursor;
+    while (cursor < raw_request.size() && !(raw_request[cursor] == '\r' && raw_request[cursor + 1] == '\n'))
     {
-        pos++;
+        cursor++;
     }
-    request_line.version = std::string(raw_request.begin() + start, raw_request.begin() + pos);
-    pos += 2;
+    request_line.version = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
+    cursor += 2;
 
     return request_line;
 }
 
-std::map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t &pos)
+std::map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t cursor)
 {
     std::map<std::string, std::string> headers;
-    while (pos < raw_request.size())
+    while (cursor < raw_request.size())
     {
-        if (raw_request[pos] == '\r' && raw_request[pos + 1] == '\n')
+        if (raw_request[cursor] == '\r' && raw_request[cursor + 1] == '\n')
         {
-            pos += 2;
+            cursor += 2;
             break;
         }
 
-        size_t start = pos;
-        while (pos < raw_request.size() && raw_request[pos] != ':')
+        size_t start = cursor;
+        while (cursor < raw_request.size() && raw_request[cursor] != ':')
         {
-            pos++;
+            cursor++;
         }
-        std::string key = std::string(raw_request.begin() + start, raw_request.begin() + pos);
+        std::string key = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
         for (auto &c : key)
             c = std::tolower(c);
-        pos++;
+        cursor++;
 
-        while (pos < raw_request.size() && (raw_request[pos] == ' ' || raw_request[pos] == '\t'))
+        while (cursor < raw_request.size() && (raw_request[cursor] == ' ' || raw_request[cursor] == '\t'))
         {
-            pos++;
+            cursor++;
         }
 
-        start = pos;
-        while (pos < raw_request.size() && !(raw_request[pos] == '\r' && raw_request[pos + 1] == '\n'))
+        start = cursor;
+        while (cursor < raw_request.size() && !(raw_request[cursor] == '\r' && raw_request[cursor + 1] == '\n'))
         {
-            pos++;
+            cursor++;
         }
-        std::string value = std::string(raw_request.begin() + start, raw_request.begin() + pos);
-        pos += 2;
+        std::string value = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
+        cursor += 2;
 
-        headers[key] = value;
+        if (headers.find(key) != headers.end())
+        {
+            if (repeatable_headers.find(key) != repeatable_headers.end())
+            {
+                headers[key] += "," + value;
+            }
+            else
+            {
+                throw http::exceptions::InvalidDuplicateHeaders("Duplicate header: " + key);
+            }
+        }
+        else
+        {
+            headers[key] = value;
+        }
     }
     return headers;
 }
-
-std::vector<char> http::HttpParser::parse_body(const std::vector<char> &raw_request, size_t &pos, const std::map<std::string, std::string> &headers)
-{
-    std::vector<char> body;
-    auto it = headers.find(http::headers::CONTENT_LENGTH);
-    if (it != headers.end())
-    {
-        size_t content_length = std::stoul(it->second);
-        body.insert(body.end(), raw_request.begin() + pos, raw_request.begin() + pos + content_length);
-        pos += content_length;
-    }
-    else if (headers.find(http::headers::TRANSFER_ENCODING) != headers.end())
-    {
-        while (true)
-        {
-            size_t start = pos;
-            while (pos < raw_request.size() && !(raw_request[pos] == '\r' && raw_request[pos + 1] == '\n'))
-            {
-                pos++;
-            }
-            std::string chunk_size_str(raw_request.begin() + start, raw_request.begin() + pos);
-            size_t chunk_size = std::stoul(chunk_size_str, nullptr, 16);
-            pos += 2;
-
-            if (chunk_size == 0)
-            {
-                break;
-            }
-
-            body.insert(body.end(), raw_request.begin() + pos, raw_request.begin() + pos + chunk_size);
-            pos += chunk_size + 2; // Skip CRLF
-        }
-    }
-    return body;
-}
-
 
 bool http::HttpParser::validate_request_line(const std::vector<char> &request_line_byte_buffer)
 {
@@ -134,61 +131,53 @@ bool http::HttpParser::validate_request_line(const std::vector<char> &request_li
     return space_count == 2;
 }
 
-bool http::HttpParser::is_transfer_encoding_chunked_header(const std::vector<char> &header_byte_buffer)
+bool http::HttpParser::has_transfer_encoding_chunked_header(const std::map<std::string, std::string> &headers)
 {
-    std::string header_line(header_byte_buffer.begin(), header_byte_buffer.end());
-    size_t colon_pos = header_line.find(':');
-    if (colon_pos == std::string::npos)
+    auto it = headers.find(http::headers::TRANSFER_ENCODING);
+    if (it != headers.end())
     {
-        return false;
-    }
+        const std::string &value = it->second;
 
-    std::string key = header_line.substr(0, colon_pos);
-    for (auto &c : key)
-        c = std::tolower(c);
-    std::string value = header_line.substr(colon_pos + 1);
+        size_t last_comma = value.rfind(',');
 
-    while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
-        value.erase(value.begin());
-    if (key == http::headers::TRANSFER_ENCODING)
-    {
-        size_t last_comma = value.find_last_of(',');
-        std::string last_encoding = (last_comma == std::string::npos) ? value : value.substr(last_comma + 1);
-
-        while (!last_encoding.empty() && (last_encoding.front() == ' ' || last_encoding.front() == '\t'))
-            last_encoding.erase(last_encoding.begin());
-
-        while (!last_encoding.empty() && (last_encoding.back() == ' ' || last_encoding.back() == '\t'))
-            last_encoding.pop_back();
-
-        if (last_encoding != "chunked")
+        std::string last_token;
+        if (last_comma == std::string::npos)
         {
-            throw http::exceptions::TransferEncodingWithoutChunked();
+            last_token = value;
         }
-        return true;
+        else
+        {
+            last_token = value.substr(last_comma + 1);
+        }
+
+        size_t start = last_token.find_first_not_of(" \t");
+        size_t end = last_token.find_last_not_of(" \t");
+
+        if (start != std::string::npos)
+        {
+            last_token = last_token.substr(start, end - start + 1);
+        }
+        else
+        {
+            last_token.clear();
+        }
+
+        if (last_token == "chunked")
+        {
+            return true;
+        }
     }
     return false;
 }
 
-long http::HttpParser::is_content_length_header(const std::vector<char> &header_byte_buffer)
+long http::HttpParser::has_content_length_header(const std::map<std::string, std::string> &headers)
 {
-    std::string header_line(header_byte_buffer.begin(), header_byte_buffer.end());
-    size_t colon_pos = header_line.find(':');
-    if (colon_pos == std::string::npos)
-    {
-        return -1;
-    }
-    std::string key = header_line.substr(0, colon_pos);
-    for (auto &c : key)
-        c = std::tolower(c);
-    std::string value = header_line.substr(colon_pos + 1);
-    while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
-        value.erase(value.begin());
-    if (key == http::headers::CONTENT_LENGTH)
+    auto it = headers.find(http::headers::CONTENT_LENGTH);
+    if (it != headers.end())
     {
         try
         {
-            size_t content_length = std::stol(value);
+            size_t content_length = std::stol(it->second);
             if (content_length < 0)
             {
                 throw http::exceptions::InvalidContentLength();
@@ -203,22 +192,98 @@ long http::HttpParser::is_content_length_header(const std::vector<char> &header_
     return -1;
 }
 
-std::vector<char> http::HttpParser::create_response_buffer(const http::HttpResponse &response)
+size_t http::HttpParser::encode_response_status_line(const std::string &version, int status_code, const std::string &reason_phrase, std::vector<char> &buffer, size_t cursor)
 {
-    std::vector<char> buffer;
-    std::string status_line = response.version() + " " + std::to_string(response.status_code()) + " " + response.status_message() + "\r\n";
-    buffer.insert(buffer.end(), status_line.begin(), status_line.end());
-
-    for (const auto &header : response.headers())
+    // version status-code reason_phrase\r\n
+    std::string status_line = version + " " + std::to_string(status_code) + " " + reason_phrase + "\r\n";
+    if (status_line.size() + cursor > buffer.size())
     {
-        std::string header_line = header.first + ": " + header.second + "\r\n";
-        buffer.insert(buffer.end(), header_line.begin(), header_line.end());
+        return 0;
     }
 
-    buffer.insert(buffer.end(), '\r');
-    buffer.insert(buffer.end(), '\n');
+    memcpy(buffer.data() + cursor, status_line.data(), status_line.size());
+    return status_line.size();
+}
 
-    buffer.insert(buffer.end(), response.body().begin(), response.body().end());
+size_t http::HttpParser::encode_response_header(const std::string &header, const std::string &value, std::vector<char> &buffer, size_t cursor)
+{
+    // header:value\r\n
+    const size_t required_size = header.size() + value.size() + 3; // ':' + "\r\n"
+    if (cursor + required_size > buffer.size())
+    {
+        return 0;
+    }
 
-    return buffer;
+    memcpy(buffer.data() + cursor, header.data(), header.size());
+    cursor += header.size();
+
+    buffer[cursor++] = ':';
+    memcpy(buffer.data() + cursor, value.data(), value.size());
+    cursor += value.size();
+
+    buffer[cursor++] = '\r';
+    buffer[cursor++] = '\n';
+
+    return required_size;
+}
+
+size_t http::HttpParser::encode_end_of_headers(std::vector<char> &buffer, size_t cursor)
+{
+    // \r\n
+    if (cursor + 2 > buffer.size())
+    {
+        return 0;
+    }
+
+    buffer[cursor++] = '\r';
+    buffer[cursor++] = '\n';
+
+    return 2;
+}
+
+size_t http::HttpParser::encode_chunksize_line(size_t chunk_size, unsigned int width, std::vector<char> &buffer, size_t cursor)
+{
+    // XXXX\r\n X = Hex digit.
+    size_t digits = width;
+    size_t value = chunk_size;
+
+    if (cursor + digits + 2 > buffer.size())
+    {
+        return 0;
+    }
+
+    for (size_t place_no = 0; place_no < digits; ++place_no)
+    {
+        unsigned int digit = static_cast<unsigned int>(chunk_size % 16);
+        size_t place = cursor + digits - 1 - place_no;
+        if (digit < 10)
+        {
+            buffer[place] = static_cast<char>('0' + digit);
+        }
+        else
+        {
+            buffer[place] = static_cast<char>('a' + digit - 10);
+        }
+        chunk_size /= 16;
+    }
+
+    cursor += digits;
+    buffer[cursor++] = '\r';
+    buffer[cursor++] = '\n';
+
+    return digits + 2;
+}
+
+size_t http::HttpParser::encode_chunk_end(std::vector<char> &buffer, size_t cursor)
+{
+    // \r\n
+    if (cursor + 2 > buffer.size())
+    {
+        return 0;
+    }
+
+    buffer[cursor++] = '\r';
+    buffer[cursor++] = '\n';
+
+    return 2;
 }

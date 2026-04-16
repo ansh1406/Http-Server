@@ -1,10 +1,15 @@
 #ifdef _WIN32
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include "tcp.hpp"
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -71,7 +76,7 @@ namespace tcp
 
             // set reuse addr
             int optionValue = constants::OPTION_TRUE;
-            if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&optionValue), sizeof(int)) != 0)
+            if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&optionValue), sizeof(int)) != 0)
             {
                 closesocket(sock);
                 throw exceptions::CanNotSetSocketOptions{std::string("TCP: ") + get_error_message()};
@@ -87,7 +92,7 @@ namespace tcp
 
             socket_fd = SocketFD(sock);
 
-            if (bind(socket_fd.fd(), reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0)
+            if (bind(socket_fd.fd(), reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) != 0)
             {
                 throw exceptions::CanNotBindSocket{std::string("TCP: ") + get_error_message()};
             }
@@ -97,19 +102,19 @@ namespace tcp
                 throw exceptions::CanNotListenOnSocket{std::string("TCP: ") + get_error_message()};
             }
         }
-        catch (const exceptions::CanNotCreateSocket& e)
+        catch (const exceptions::CanNotCreateSocket &e)
         {
             throw exceptions::SocketNotCreated{"TCP: Cannot create socket: " + std::string(e.what())};
         }
-        catch (const exceptions::CanNotSetSocketOptions& e)
+        catch (const exceptions::CanNotSetSocketOptions &e)
         {
             throw exceptions::SocketNotCreated{"TCP: Cannot set socket options: " + std::string(e.what())};
         }
-        catch (const exceptions::CanNotBindSocket& e)
+        catch (const exceptions::CanNotBindSocket &e)
         {
             throw exceptions::SocketNotCreated{"TCP: Cannot bind socket: " + std::string(e.what())};
         }
-        catch (const exceptions::CanNotListenOnSocket& e)
+        catch (const exceptions::CanNotListenOnSocket &e)
         {
             throw exceptions::SocketNotCreated{"TCP: Cannot listen on socket: " + std::string(e.what())};
         }
@@ -128,7 +133,7 @@ namespace tcp
             {
                 sockaddr_in client_addr{};
                 int client_len = sizeof(client_addr);
-                SOCKET sock = accept(socket_fd.fd(), reinterpret_cast<sockaddr*>(&client_addr), &client_len);
+                SOCKET sock = accept(socket_fd.fd(), reinterpret_cast<sockaddr *>(&client_addr), &client_len);
                 if (static_cast<SocketHandle>(sock) == constants::INVALID_HANDLE)
                 {
                     int err = WSAGetLastError();
@@ -155,15 +160,15 @@ namespace tcp
             }
             return connections;
         }
-        catch (const exceptions::CanNotAcceptConnection& e)
+        catch (const exceptions::CanNotAcceptConnection &e)
         {
             throw;
         }
-        catch (const exceptions::CanNotSetSocketOptions& e)
+        catch (const exceptions::CanNotSetSocketOptions &e)
         {
             throw exceptions::CanNotAcceptConnection{"TCP: Failed to set socket options: " + std::string(e.what())};
         }
-        catch (const std::exception& e)
+        catch (const std::exception &e)
         {
             throw exceptions::CanNotAcceptConnection{"TCP: Failed to accept connection: " + std::string(e.what())};
         }
@@ -173,13 +178,23 @@ namespace tcp
         }
     }
 
-    size_t ConnectionSocket::send_data(const std::vector<char>& data, size_t start_pos)
+    size_t ConnectionSocket::send_data(const std::vector<char> &data, size_t start_pos, size_t end_pos)
     {
-        int total_sent = 0;
-        int data_length = static_cast<int>(data.size() - start_pos);
-        const char* data_ptr = data.data() + start_pos;
         try
         {
+            if (end_pos > data.size())
+            {
+                throw exceptions::CanNotSendData{"TCP: Send range exceeds buffer size."};
+            }
+            if (start_pos >= end_pos)
+            {
+                return 0;
+            }
+
+            int total_sent = 0;
+            int data_length = static_cast<int>(end_pos - start_pos);
+            const char *data_ptr = data.data() + start_pos;
+
             while (total_sent < data_length)
             {
                 int bytes_sent = send(socket_fd.fd(), data_ptr + total_sent, data_length - total_sent, 0);
@@ -196,7 +211,7 @@ namespace tcp
             }
             return total_sent;
         }
-        catch (const std::exception& e)
+        catch (const std::exception &e)
         {
             throw exceptions::CanNotSendData{"TCP: Failed to send all data: " + std::string(e.what())};
         }
@@ -206,24 +221,25 @@ namespace tcp
         }
     }
 
-    std::vector<char> ConnectionSocket::receive_data()
+    size_t ConnectionSocket::receive_data(std::vector<char> &buffer, size_t buffer_cursor, bool read_once)
     {
         try
         {
-            std::vector<char> buffer;
             size_t total_received = 0;
             while (true)
             {
-                int remaining_space = static_cast<int>(buffer.size() - total_received);
-                if (remaining_space < static_cast<int>(constants::BUFFER_EXPANTION_SIZE))
+                if (buffer_cursor + total_received >= buffer.size())
                 {
-                    buffer.resize(buffer.size() + constants::BUFFER_EXPANTION_SIZE);
-                    remaining_space = static_cast<int>(buffer.size() - total_received);
+                    break;
                 }
-                int bytes_received = recv(socket_fd.fd(), buffer.data() + total_received, remaining_space, 0);
+
+                size_t remaining_space = buffer.size() - buffer_cursor - total_received;
+                int bytes_to_read = static_cast<int>(std::min(remaining_space, static_cast<size_t>(INT_MAX)));
+                int bytes_received = recv(socket_fd.fd(), buffer.data() + buffer_cursor + total_received, bytes_to_read, 0);
+
                 if (bytes_received == 0)
                 {
-                    throw exceptions::CanNotReceiveData{"Connection closed by peer."};
+                    throw tcp::exceptions::CanNotReceiveData{"Connection closed by peer."};
                 }
                 if (bytes_received == SOCKET_ERROR)
                 {
@@ -234,21 +250,73 @@ namespace tcp
                     }
                     else
                     {
-                        throw exceptions::CanNotReceiveData{get_error_message()};
+                        throw tcp::exceptions::CanNotReceiveData{get_error_message()};
                     }
                 }
                 total_received += bytes_received;
+                if (read_once)
+                {
+                    break;
+                }
             }
-            buffer.resize(total_received);
-            return buffer;
+            return total_received;
         }
-        catch (const std::exception& e)
+        catch (const std::exception &e)
         {
-            throw exceptions::CanNotReceiveData{"TCP: Failed to receive data: " + std::string(e.what())};
+            throw tcp::exceptions::CanNotReceiveData{"TCP: Failed to receive data: " + std::string(e.what())};
         }
         catch (...)
         {
-            throw exceptions::CanNotReceiveData{"TCP: Unknown error while receiving data."};
+            throw tcp::exceptions::CanNotReceiveData{"TCP: Unknown error while receiving data."};
+        }
+    }
+
+    void tcp::ConnectionSocket::set_socket_blocking(time_t blocking_timeout_in_milliseconds)
+    {
+        try
+        {
+            u_long mode = 0; // Blocking mode
+            if (ioctlsocket(socket_fd.fd(), FIONBIO, &mode) != 0)
+            {
+                throw exceptions::CanNotSetSocketOptions{std::string("TCP: ") + get_error_message()};
+            }
+        }
+        catch (const std::exception &e)
+        {
+            throw exceptions::CanNotSetSocketOptions{"TCP: Failed to set socket to blocking mode: " + std::string(e.what())};
+        }
+        catch (...)
+        {
+            throw exceptions::CanNotSetSocketOptions{"TCP: Unknown error while setting socket to blocking mode."};
+        }
+
+        if (blocking_timeout_in_milliseconds > 0)
+        {
+            DWORD timeout = static_cast<DWORD>(blocking_timeout_in_milliseconds);
+            if (setsockopt(socket_fd.fd(), SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<char *>(&timeout), sizeof(timeout)) != 0)
+            {
+                throw exceptions::CanNotSetSocketOptions{std::string("TCP: ") + get_error_message()};
+            }
+        }
+    }
+
+    void tcp::ConnectionSocket::set_socket_non_blocking()
+    {
+        try
+        {
+            u_long mode = 1; // Non-blocking mode
+            if (ioctlsocket(socket_fd.fd(), FIONBIO, &mode) != 0)
+            {
+                throw exceptions::CanNotSetSocketOptions{std::string("TCP: ") + get_error_message()};
+            }
+        }
+        catch (const std::exception &e)
+        {
+            throw exceptions::CanNotSetSocketOptions{"TCP: Failed to set socket to non-blocking mode: " + std::string(e.what())};
+        }
+        catch (...)
+        {
+            throw exceptions::CanNotSetSocketOptions{"TCP: Unknown error while setting socket to non-blocking mode."};
         }
     }
 

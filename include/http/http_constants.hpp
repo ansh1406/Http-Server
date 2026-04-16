@@ -15,6 +15,14 @@ namespace http
         const std::string CONNECTION = "connection";
         const std::string HOST = "host";
         const std::string EXPECT = "expect";
+        const std::string ACCEPT = "accept";
+        const std::string ACCEPT_ENCODING = "accept-encoding";
+        const std::string ACCEPT_LANGUAGE = "accept-language";
+        const std::string CACHE_CONTROL = "cache-control";
+        const std::string VIA = "via";
+        const std::string WARNING = "warning";
+        const std::string IF_MATCH = "if-match";
+        const std::string IF_NONE_MATCH = "if-none-match";
     }
 
     namespace methods

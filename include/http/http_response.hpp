@@ -9,67 +9,85 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <functional>
 
 namespace http
 {
+    /// @brief Container for HTTP response data.
     class HttpResponse
     {
     private:
+        struct Impl;
+        Impl *pimpl;
+
         /// @brief  The HTTP version (e.g., HTTP/1.1). It is set to HTTP/1.1 by default and cannot be changed because of library constraints.
         std::string _version;
         /// @brief The HTTP status code (e.g., 200, 404).
         int _status_code;
-        /// @brief The HTTP resaon phrase (e.g., "OK", "Not Found").
-        std::string _status_message;
+        /// @brief The HTTP reason phrase (e.g., "OK", "Not Found").
+        std::string _reason_phrase;
         /// @brief A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
         std::map<std::string, std::string> _headers;
-        /// @brief The body of the HTTP response, stored as a vector of bytes. It will be empty for responses that do not have a body.
-        std::vector<char> _body;
 
     public:
-        /// @brief Constructor for HttpResponse with all parameters.
-        /// @param status_code The HTTP status code (e.g., 200, 404).
-        /// @param status_message The HTTP status message (e.g., "OK", "Not Found").
-        /// @param headers A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
-        /// @param body The body of the HTTP response, stored as a vector of bytes. It will be empty for responses that do not have a body.
-        HttpResponse(int status_code,
-                     const std::string &status_message,
-                     const std::map<std::string, std::string> &headers,
-                     const std::vector<char> &body)
-            : _version(versions::HTTP_1_1), _status_code(status_code), _status_message(status_message), _headers(headers), _body(body) {}
+        /// @brief A function type for generating the body of an HTTP response.
+        /// This function should write the body content into the provided data vector and return the number of bytes written.
+        /// If the body streaming is complete, the function should return -1.
+        /// Successive calls are expected to continue where the previous call ended.
+        using WriterFunction = std::function<long(std::vector<char> &data)>;
 
-        /// @brief Default constructor for HttpResponse. Initializes an empty HTTP response with HTTP version set to HTTP/1.1. Verison is set to HTTP/1.1 by default and cannot be changed because of library constraints.
-        HttpResponse() : _version(versions::HTTP_1_1) {}
+        /// @brief Default constructor for HttpResponse.
+        /// Initializes an empty HTTP response with HTTP version set to HTTP/1.1.
+        /// Verison is set to HTTP/1.1 by default and cannot be changed because of library constraints.
+        HttpResponse();
 
         /// @brief Constructor for HttpResponse with status code and message.
         /// @param status_code The HTTP status code (e.g., 200, 404).
-        /// @param status_message The HTTP status message (e.g., "OK", "Not Found").
+        /// @param reason_phrase The HTTP status message (e.g., "OK", "Not Found").
         explicit HttpResponse(int status_code,
-                              const std::string &status_message)
-            : _version(versions::HTTP_1_1), _status_code(status_code), _status_message(status_message) {}
+                              const std::string &reason_phrase);
+
+        ~HttpResponse();
+
+        HttpResponse(const HttpResponse &) = delete;
+        HttpResponse &operator=(const HttpResponse &) = delete;
+        /// Move keeps response body stream state valid in the destination object.
+        HttpResponse(HttpResponse &&other) noexcept;
+        HttpResponse &operator=(HttpResponse &&other) noexcept;
 
         /// @return HTTP version as a std::string.
-        const std::string &version() const noexcept { return _version; }
+        const std::string &version() const noexcept;
         /// @return HTTP status code as an int.
-        int status_code() const noexcept { return _status_code; }
+        int status_code() const noexcept;
         /// @return HTTP status message as a std::string.
-        const std::string &status_message() const noexcept { return _status_message; }
+        const std::string &reason_phrase() const noexcept;
         /// @return HTTP headers as a map of Header key(std::string)-value(std::string) pairs.
-        const std::map<std::string, std::string> &headers() const noexcept { return _headers; }
-        /// @return HTTP body as a vector of chars.
-        const std::vector<char> &body() const noexcept { return _body; }
+        const std::map<std::string, std::string> &headers() const noexcept;
 
         /// @brief Sets the HTTP status code.
-        void set_status_code(int status_code) noexcept { _status_code = status_code; }
+        void set_status_code(int status_code) noexcept;
+
         /// @brief Sets the HTTP status message.
-        void set_status_message(const std::string &status_message) { _status_message = status_message; }
-        /// @brief Adds or updates body of the HTTP response.
-        /// @param body vector of chars representing the body content.
-        void set_body(const std::vector<char> &body) { _body = body; }
-        /// @brief Adds or updates a header in the HTTP response.
+        void set_status_message(const std::string &reason_phrase);
+
+        /// @brief Sets the body generator function.
+        /// The function should write the body content into the provided data vector and return the number of bytes written.
+        /// If the body streaming is complete, the function should return -1.
+        /// Replaces any previously configured body generator/body data source.
+        /// @param writer A WriterFunction that generates the body content.
+        void set_body_generator(WriterFunction writer);
+
+        /// @brief Sets the body of the HTTP response.
+        /// Replaces any previously configured streaming generator.
+        /// @param data std::vector<char> representing the body content.
+        void set_body(const std::vector<char> &data);
+
+        /// @brief Sets or updates a header in the HTTP response.
         /// @param key Header key as a std::string.
         /// @param value Header value as a std::string.
-        void add_header(const std::string key, const std::string value) { _headers[key] = value; }
+        void set_header(const std::string &key, const std::string &value);
+
+        friend struct HttpResponseReader;
     };
 }
 

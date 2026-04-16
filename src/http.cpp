@@ -3,47 +3,17 @@
 #include "http/http_request.hpp"
 #include "http/http_response.hpp"
 
+#include "http_internal.hpp"
 #include "http_connection.hpp"
 #include "http_exceptions.hpp"
-#include "http_parser.hpp"
 #include "tcp.hpp"
 #include "event_manager.hpp"
 #include "logger.hpp"
 
 #include <map>
+#include <cstring>
 
-namespace http
-{
-    namespace sizes
-    {
-        const size_t MAX_REQUEST_LINE_SIZE = 8192; // 8 KB
-        const size_t MAX_HEADER_SIZE = 8192;       // 8 KB
-    }
-}
-
-struct http::HttpServer::Impl
-{
-    tcp::ListeningSocket server_socket;
-    tcp::EventManager event_manager;
-    HttpServerConfig config;
-    std::map<int, HttpConnection> connections;
-    RequestHandler request_handler;
-
-    void check_and_remove_inactive_connections();
-    void accept_new_connections();
-    void start_event_loop();
-
-    void log_info(const std::string &message) const;
-    void log_warning(const std::string &message) const;
-    void log_error(const std::string &message) const;
-
-    std::string get_ip() const;
-    unsigned short get_port() const noexcept;
-
-    Impl(tcp::ListeningSocket &&sock, tcp::EventManager &&em, HttpServerConfig _config, RequestHandler handler) : server_socket(std::move(sock)), event_manager(std::move(em)), config(_config), request_handler(handler) {}
-};
-
-bool logger__running = false;
+bool Logger::logger_running = false;
 
 void initialize_logger(const bool external_logging)
 {
@@ -75,7 +45,7 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
         if (_config.enable_logging)
         {
             initialize_logger(_config.external_logging);
-            logger__running = true;
+            Logger::logger_running = true;
         }
     }
     catch (...)
@@ -84,8 +54,14 @@ http::HttpServer::HttpServer(HttpServerConfig _config, const std::function<void(
 
     try
     {
-        pimpl = new Impl(std::move(tcp::ListeningSocket(_config.port, _config.max_pending_connections)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), _config, handler);
+        pimpl = new Impl(std::move(tcp::ListeningSocket(_config.port, _config.max_pending_connections)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, -1)), std::move(tcp::EventManager(_config.max_concurrent_connections + 1, 100)), _config, handler);
         pimpl->log_info("Server created on port:" + std::to_string(_config.port));
+
+        size_t handler_thread_count = std::max(std::thread::hardware_concurrency() * 2, 8U);
+        pimpl->handler_threads.resize(handler_thread_count);
+        pimpl->initialize_handler_threads();
+
+        pimpl->initialize_response_thread();
     }
     catch (const tcp::exceptions::CanNotCreateSocket &e)
     {
@@ -132,17 +108,17 @@ void http::HttpServer::Impl::start_event_loop()
     try
     {
         log_info("Server listening on port: " + std::to_string(config.port));
-        int server_id = event_manager.register_socket(server_socket.fd());
+        int server_id = request_event_manager.register_for_read(server_socket.fd());
         while (true)
         {
             try
             {
-                std::vector<int> active_connections = event_manager.wait_for_events();
+                std::vector<int> active_connections = request_event_manager.wait_for_events();
 
-                if (event_manager.is_readable(server_id))
+                if (request_event_manager.is_readable(server_id))
                 {
                     accept_new_connections();
-                    event_manager.clear_status(server_id);
+                    request_event_manager.clear_status(server_id);
                 }
 
                 for (auto conn_id : active_connections)
@@ -150,14 +126,10 @@ void http::HttpServer::Impl::start_event_loop()
                     if (conn_id == server_id)
                         continue;
                     HttpConnection &connection = connections.at(conn_id);
-                    if (event_manager.is_readable(conn_id))
+                    if (request_event_manager.is_readable(conn_id))
                     {
                         connection.set_peer_writing();
                     }
-                    if (event_manager.is_writable(conn_id))
-                    {
-                        connection.set_peer_reading();
-                    }
                 }
 
                 for (auto conn_id : active_connections)
@@ -165,24 +137,47 @@ void http::HttpServer::Impl::start_event_loop()
                     if (conn_id == server_id)
                         continue;
 
+                    request_event_manager.clear_status(conn_id);
+
                     HttpConnection &connection = connections.at(conn_id);
-                    connection.handle_request(request_handler);
 
-                    event_manager.clear_status(conn_id);
-                    connection.set_peer_idle();
-
-                    if (connection.status() == request_status::SENDING_RESPONSE)
+                    if (connection.peer_is_readable() && connection.get_current_request().get_status() < RequestStatus::HEADERS_DONE)
                     {
-                        event_manager.add_to_write_monitoring(conn_id);
+                        connection.read_and_build_request_head();
+                        connection.set_peer_idle();
                     }
 
-                    if (connection.status() == request_status::COMPLETED || connection.status() == request_status::CLIENT_ERROR)
+                    if (connection.get_current_request().get_status() == HEADERS_DONE)
                     {
-                        event_manager.remove_socket(conn_id);
-                        connections.erase(conn_id);
+                        request_event_manager.remove_socket(conn_id);
+                        {
+                            std::lock_guard<std::mutex> lock(handler_mutex);
+                            waiting_for_handler_connections.push(conn_id);
+                        }
+                        handler_cv.notify_one();
+                    }
+
+                    if (connection.get_current_request().get_status() == RequestStatus::CLIENT_ERROR || connection.get_current_request().get_status() == RequestStatus::SERVER_ERROR)
+                    {
+                        request_event_manager.remove_socket(conn_id);
+                        if (connection.inactive)
+                        {
+                            {
+                                std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                                completed_connections.push(conn_id);
+                            }
+                        }
+                        else
+                        {
+                            {
+                                std::lock_guard<std::mutex> lock(response_mutex);
+                                waiting_to_send_response.push(conn_id);
+                            }
+                            response_cv.notify_one();
+                        }
                     }
                 }
-                check_and_remove_inactive_connections();
+                mark_inactive_connections();
             }
             catch (const std::exception &e)
             {
@@ -206,10 +201,10 @@ void http::HttpServer::Impl::start_event_loop()
     }
 }
 
-void http::HttpServer::Impl::check_and_remove_inactive_connections()
+void http::HttpServer::Impl::mark_inactive_connections()
 {
     static time_t last_timeout_check = 0;
-    if (time(nullptr) - last_timeout_check >= 5)
+    if (time(nullptr) - last_timeout_check >= 1)
     {
         last_timeout_check = time(nullptr);
         for (auto &it : connections)
@@ -218,10 +213,21 @@ void http::HttpServer::Impl::check_and_remove_inactive_connections()
             if (conn.idle_time() > config.inactive_connection_timeout_in_seconds)
             {
                 log_info("Connection timed out: " + conn.get_ip() + ":" + std::to_string(conn.get_port()));
-                event_manager.remove_socket(it.first);
-                connections.erase(it.first);
+                conn.inactive = true;
             }
         }
+    }
+}
+
+void http::HttpServer::Impl::remove_completed_connections()
+{
+    std::lock_guard<std::mutex> lock(completed_connections_mutex);
+    while (!completed_connections.empty())
+    {
+        int conn_id = completed_connections.front();
+        completed_connections.pop();
+        connections.erase(conn_id);
+        log_info("Connection closed: " + std::to_string(conn_id));
     }
 }
 
@@ -230,488 +236,141 @@ void http::HttpServer::Impl::accept_new_connections()
     std::vector<tcp::ConnectionSocket> new_connections = server_socket.accept_connections();
     for (auto &conn : new_connections)
     {
-        int conn_id = event_manager.register_socket(conn.fd());
+        int conn_id = request_event_manager.register_for_read(conn.fd());
         connections.insert({conn_id, http::HttpConnection(std::move(conn))});
         log_info("Connection accepted: " + connections.at(conn_id).get_ip() + ":" + std::to_string(connections.at(conn_id).get_port()));
     }
 }
 
-void http::HttpConnection::handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept
+void http::HttpServer::Impl::initialize_handler_threads()
 {
-    try
-    {
-        if (current_request_status == request_status::CONNECTION_ESTABLISHED || current_request_status == request_status::READING_REQUEST_LINE || current_request_status == request_status::REQUEST_LINE_DONE || current_request_status == request_status::READING_HEADERS || current_request_status == request_status::HEADERS_DONE || current_request_status == request_status::READING_BODY)
-        {
-            if (peer_is_readable())
-                read_request();
-        }
-        if (current_request_status == request_status::REQUEST_READING_DONE)
-        {
-            if (request_handler)
-                request_handler(current_request, current_response);
 
-            current_response.add_header("Connection", "close");
-
-            if (peer_is_writable())
-                send_response();
-        }
-        if (current_request_status == request_status::SENDING_RESPONSE || current_request_status == request_status::SERVER_ERROR)
-        {
-            if (peer_is_writable())
-                send_response();
-        }
-    }
-    catch (const std::exception &e)
+    auto handler_thread_function = [this]()
     {
-        log_error(std::string(e.what()));
-        try
-        {
-            current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
-            current_request_status = request_status::SERVER_ERROR;
-            if (peer_is_writable())
-                send_response();
-        }
-        catch (...)
-        {
-            // Suppress all exceptions in the outermost catch to avoid termination
-        }
-    }
-    catch (...)
-    {
-        try
-        {
-            current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
-            current_request_status = request_status::SERVER_ERROR;
-            if (peer_is_writable())
-                send_response();
-        }
-        catch (...)
-        {
-            // Suppress all exceptions in the outermost catch to avoid termination
-        }
-    }
-}
-
-void http::HttpConnection::send_response()
-{
-    try
-    {
-        if (current_request_status == request_status::REQUEST_READING_DONE || current_request_status == request_status::SERVER_ERROR)
-        {
-            buffer.clear();
-            buffer_cursor = 0;
-            buffer = http::HttpParser::create_response_buffer(current_response);
-            current_request_status = request_status::SENDING_RESPONSE;
-        }
-        int sent_bytes = client_socket.send_data(buffer, buffer_cursor);
-        buffer_cursor += sent_bytes;
-        if (buffer_cursor == buffer.size())
-        {
-            log_info("Response sent with status code: " + std::to_string(current_response.status_code()));
-            current_request_status = request_status::COMPLETED;
-        }
-    }
-    catch (const tcp::exceptions::CanNotSendData &e)
-    {
-        current_request_status = request_status::CLIENT_ERROR;
-        throw http::exceptions::CanNotSendResponse(std::string(e.what()));
-    }
-    catch (...)
-    {
-        current_request_status = request_status::CLIENT_ERROR;
-        throw http::exceptions::CanNotSendResponse();
-    }
-}
-
-void http::HttpConnection::read_request()
-{
-    try
-    {
-        static long body_size = -1;
-        static bool has_chunked_body = false;
-        read_from_client();
-        if (current_request_status == request_status::CONNECTION_ESTABLISHED)
-        {
-            current_request._ip = get_ip();
-            current_request._port = std::to_string(get_port());
-            current_request_status = request_status::READING_REQUEST_LINE;
-        }
-        if (current_request_status == request_status::READING_REQUEST_LINE)
-        {
-            read_request_line();
-        }
-        if (current_request_status == request_status::REQUEST_LINE_DONE)
-        {
-            if (!http::HttpParser::validate_request_line(buffer))
-            {
-                throw http::exceptions::InvalidRequestLine();
-            }
-            else
-            {
-                http::HttpRequestLine req_line = http::HttpParser::parse_request_line(buffer, parser_cursor);
-                current_request._method = req_line.method;
-                current_request._uri = req_line.uri;
-                current_request._version = req_line.version;
-                if (current_request._version != http::versions::HTTP_1_1)
-                {
-                    throw http::exceptions::VersionNotSupported{};
-                }
-                current_request_status = request_status::READING_HEADERS;
-            }
-        }
-        if (current_request_status == request_status::READING_HEADERS)
-        {
-            read_headers();
-        }
-        if (current_request_status == request_status::HEADERS_DONE)
-        {
-            current_request._headers = http::HttpParser::parse_headers(buffer, parser_cursor);
-            for (auto &header : current_request._headers)
-            {
-                long content_length = http::HttpParser::is_content_length_header(std::vector<char>(header.first.begin(), header.first.end()));
-                if (content_length != -1)
-                {
-                    if (body_size != -1)
-                        throw http::exceptions::MultipleContentLengthHeaders{};
-                    body_size = content_length;
-                    current_request_status = request_status::READING_BODY;
-                    break;
-                }
-                if (http::HttpParser::is_transfer_encoding_chunked_header(std::vector<char>(header.first.begin(), header.first.end())))
-                {
-                    has_chunked_body = true;
-                    current_request_status = request_status::READING_BODY;
-                    break;
-                }
-            }
-            if (body_size != -1 && has_chunked_body)
-            {
-                throw http::exceptions::BothContentLengthAndChunked{};
-            }
-            if (body_size == -1 && !has_chunked_body)
-            {
-                current_request_status = request_status::REQUEST_READING_DONE;
-            }
-        }
-        if (current_request_status == request_status::READING_BODY)
-        {
-            if (has_chunked_body)
-            {
-                read_body();
-            }
-            else
-            {
-                read_body(body_size);
-            }
-        }
-        if (current_request_status == request_status::REQUEST_READING_DONE)
-        {
-            current_request._body = http::HttpParser::parse_body(buffer, parser_cursor, current_request._headers);
-        }
-    }
-    catch (const http::exceptions::UnexpectedEndOfStream &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
-        return;
-    }
-    catch (const http::exceptions::InvalidRequestLine &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
-        return;
-    }
-    catch (const http::exceptions::InvalidChunkedEncoding &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
-        return;
-    }
-    catch (const http::exceptions::InvalidContentLength &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
-        return;
-    }
-    catch (const http::exceptions::MultipleContentLengthHeaders &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
-        return;
-    }
-    catch (const http::exceptions::BothContentLengthAndChunked &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
-        return;
-    }
-    catch (const http::exceptions::TransferEncodingWithoutChunked &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::BAD_REQUEST, "Bad Request");
-        return;
-    }
-    catch (const http::exceptions::RequestLineTooLong &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::URI_TOO_LONG, "Invalid Request Line");
-        return;
-    }
-    catch (const http::exceptions::HeadersTooLarge &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::HEADERS_TOO_LARGE, "Header Fields Too Large");
-        return;
-    }
-    catch (const http::exceptions::VersionNotSupported &e)
-    {
-        log_error(std::string(e.what()));
-        current_response = http::HttpResponse(http::status_codes::HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
-        return;
-    }
-    catch (std::exception &e)
-    {
-        log_error(std::string("Unknown error reading request: ") + e.what());
-        current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
-        return;
-    }
-    catch (...)
-    {
-        log_error("Unknown error reading request.");
-        current_response = http::HttpResponse(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
-        return;
-    }
-}
-
-void http::HttpConnection::read_request_line()
-{
-    try
-    {
-        long pos = buffer_cursor;
-        bool found_end_of_request_line{false};
-        for (; pos < (long)buffer.size() - 1; pos++)
-        {
-            if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
-            {
-                found_end_of_request_line = true;
-                buffer_cursor = pos + 2;
-                break;
-            }
-
-            if (pos >= http::sizes::MAX_REQUEST_LINE_SIZE)
-            {
-                throw http::exceptions::RequestLineTooLong();
-            }
-        }
-        if (found_end_of_request_line)
-            current_request_status = request_status::REQUEST_LINE_DONE;
-    }
-    catch (...)
-    {
-        throw;
-    }
-}
-
-void http::HttpConnection::read_headers()
-{
-    try
-    {
-        long pos = buffer_cursor;
-        bool found_end_of_headers{false};
-        static long last_header_end = 0;
-        static long header_start = buffer_cursor;
-        for (; pos < (long)buffer.size() - 1; pos++)
-        {
-
-            if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
-            {
-                if (pos == last_header_end + 1)
-                {
-                    found_end_of_headers = true;
-                    buffer_cursor = pos + 2;
-                    break;
-                }
-                pos += 1;
-                last_header_end = pos;
-            }
-
-            if ((pos - header_start) >= http::sizes::MAX_HEADER_SIZE)
-            {
-                throw http::exceptions::HeadersTooLarge();
-            }
-        }
-        if (found_end_of_headers)
-            current_request_status = request_status::HEADERS_DONE;
-    }
-    catch (...)
-    {
-        throw;
-    }
-}
-
-void http::HttpConnection::read_body(long content_length)
-{
-    try
-    {
-        if ((long)buffer.size() - buffer_cursor >= content_length)
-        {
-            buffer_cursor += content_length;
-            current_request_status = request_status::REQUEST_READING_DONE;
-        }
-    }
-    catch (...)
-    {
-        throw;
-    }
-}
-
-void http::HttpConnection::read_body() // For chunked transfer encoding
-{
-    try
-    {
-        long pos = buffer_cursor;
         while (true)
         {
-            bool found_end_of_chunk_size_line{false};
-            for (; pos < (long)buffer.size() - 1; pos++)
+            try
             {
-                if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
+                int conn_id;
                 {
-                    found_end_of_chunk_size_line = true;
-                    break;
+                    std::unique_lock<std::mutex> lock(handler_mutex);
+                    handler_cv.wait(lock, [this]()
+                                    { return !waiting_for_handler_connections.empty(); });
+                    conn_id = waiting_for_handler_connections.front();
+                    waiting_for_handler_connections.pop();
+                }
+
+                try
+                {
+                    HttpConnection &connection = connections.at(conn_id);
+                    connection.handle_request(request_handler);
+                    if (connection.inactive)
+                    {
+                        {
+                            std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                            completed_connections.push(conn_id);
+                        }
+                        continue;
+                    }
+                    {
+                        std::lock_guard<std::mutex> lock(response_mutex);
+                        waiting_to_send_response.push(conn_id);
+                    }
+                    response_cv.notify_one();
+                }
+                catch (const std::exception &e)
+                {
+                    std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                    completed_connections.push(conn_id);
+                }
+                catch (...)
+                {
+                    std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                    completed_connections.push(conn_id);
                 }
             }
-            if (!found_end_of_chunk_size_line)
-                return;
-
-            std::string chunk_size_str(buffer.begin() + buffer_cursor, buffer.begin() + pos);
-            size_t chunk_size = std::stoul(chunk_size_str, nullptr, 16);
-            pos += 2;
-
-            if ((long)buffer.size() - pos < (long)(chunk_size + 2))
-                return;
-
-            pos += chunk_size + 2;
-
-            if (chunk_size == 0)
+            catch (...)
             {
-                buffer_cursor = pos;
-                current_request_status = request_status::REQUEST_READING_DONE;
-                return;
+                // Suppress all.
             }
-            buffer_cursor = pos;
         }
-    }
-    catch (...)
+    };
+
+    for (size_t i = 0; i < handler_threads.size(); ++i)
     {
-        throw;
+        handler_threads[i] = std::thread(handler_thread_function);
     }
 }
 
-void http::HttpConnection::read_from_client()
+void http::HttpServer::Impl::initialize_response_thread()
 {
-    try
+    auto response_thread_function = [this]()
     {
-        std::vector<char> temp_buffer;
-        temp_buffer = client_socket.receive_data();
-        buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
-    }
-    catch (const tcp::exceptions::CanNotReceiveData &e)
-    {
-        current_request_status = request_status::CLIENT_ERROR;
-        throw http::exceptions::UnexpectedEndOfStream(std::string(e.what()));
-    }
-    catch (...)
-    {
-        current_request_status = request_status::CLIENT_ERROR;
-        throw http::exceptions::UnexpectedEndOfStream();
-    }
-}
+        while (true)
+        {
+            {
+                std::unique_lock<std::mutex> lock(response_mutex);
+                response_cv.wait(lock, [this]()
+                                 { return !waiting_to_send_response.empty() || !response_sending_connections.empty(); });
 
-std::string http::HttpServer::Impl::get_ip() const
-{
-    return server_socket.get_ip();
-}
+                while (!waiting_to_send_response.empty())
+                {
+                    int conn_id = waiting_to_send_response.front();
+                    waiting_to_send_response.pop();
 
-unsigned short http::HttpServer::Impl::get_port() const noexcept
-{
-    return server_socket.get_port();
-}
+                    int id = response_event_manager.register_for_write(connections.at(conn_id).fd());
+                    response_sending_connections[id] = conn_id;
+                }
+            }
 
-void http::HttpConnection::log_info(const std::string &message) const
-{
-    try
-    {
-        if (!logger__running)
-            return;
-        Logger::get_instance().log(std::string("[CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + message), Logger::LogLevel::INFO);
-    }
-    catch (...)
-    {
-    }
-}
+            if (response_sending_connections.empty())
+            {
+                continue;
+            }
 
-void http::HttpConnection::log_warning(const std::string &message) const
-{
-    try
-    {
-        if (!logger__running)
-            return;
-        Logger::get_instance().log(std::string("[CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + message), Logger::LogLevel::WARNING);
-    }
-    catch (...)
-    {
-    }
-}
+            try
+            {
+                std::vector<int> active_connections = response_event_manager.wait_for_events();
+                for (auto id : active_connections)
+                {
+                    int conn_id = response_sending_connections.at(id);
+                    HttpConnection &connection = connections.at(conn_id);
+                    try
+                    {
+                        connection.send_response();
+                    }
+                    catch (const std::exception &e)
+                    {
+                        log_error(std::string("Error sending response: ") + e.what());
+                        connection.inactive = true;
+                    }
+                    catch (...)
+                    {
+                        log_error("Unknown error sending response.");
+                        connection.inactive = true;
+                    }
 
-void http::HttpConnection::log_error(const std::string &message) const
-{
-    try
-    {
-        if (!logger__running)
-            return;
-        Logger::get_instance().log(std::string("[CONN] [" + get_ip() + ":" + std::to_string(get_port()) + "] " + message), Logger::LogLevel::ERR);
-    }
-    catch (...)
-    {
-    }
-}
+                    if (connection.get_current_request().get_status() == RequestStatus::COMPLETED || connection.inactive)
+                    {
+                        response_event_manager.remove_socket(id);
+                        response_sending_connections.erase(id);
+                        {
+                            std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                            completed_connections.push(conn_id);
+                        }
+                    }
+                }
+            }
+            catch (const std::exception &e)
+            {
+                log_error(std::string("Error in response thread: ") + e.what());
+            }
+            catch (...)
+            {
+                log_error("Unknown error in response thread.");
+            }
+        }
+    };
 
-void http::HttpServer::Impl::log_info(const std::string &message) const
-{
-    try
-    {
-        if (!logger__running)
-            return;
-        Logger::get_instance().log(std::string("[SERVER] " + message), Logger::LogLevel::INFO);
-    }
-    catch (...)
-    {
-    }
-}
-
-void http::HttpServer::Impl::log_warning(const std::string &message) const
-{
-    try
-    {
-        if (!logger__running)
-            return;
-        Logger::get_instance().log(std::string("[SERVER] " + message), Logger::LogLevel::WARNING);
-    }
-    catch (...)
-    {
-    }
-}
-
-void http::HttpServer::Impl::log_error(const std::string &message) const
-{
-    try
-    {
-        if (!logger__running)
-            return;
-        Logger::get_instance().log(std::string("[SERVER] " + message), Logger::LogLevel::ERR);
-    }
-    catch (...)
-    {
-    }
+    response_thread = std::thread(response_thread_function);
 }

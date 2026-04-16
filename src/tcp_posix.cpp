@@ -143,13 +143,23 @@ std::vector<tcp::ConnectionSocket> tcp::ListeningSocket::accept_connections()
     }
 }
 
-size_t tcp::ConnectionSocket::send_data(const std::vector<char> &data, size_t start_pos)
+size_t tcp::ConnectionSocket::send_data(const std::vector<char> &data, size_t start_pos, size_t end_pos)
 {
-    ssize_t total_sent = 0;
-    ssize_t data_length = data.size() - start_pos;
-    const char *data_ptr = data.data() + start_pos;
     try
     {
+        if (end_pos > data.size())
+        {
+            throw tcp::exceptions::CanNotSendData{"TCP: Send range exceeds buffer size."};
+        }
+        if (start_pos >= end_pos)
+        {
+            return 0;
+        }
+
+        ssize_t total_sent = 0;
+        ssize_t data_length = static_cast<ssize_t>(end_pos - start_pos);
+        const char *data_ptr = data.data() + start_pos;
+
         while (total_sent < data_length)
         {
             ssize_t bytes_sent = send(socket_fd.fd(), data_ptr + total_sent, data_length - total_sent, 0);
@@ -176,21 +186,21 @@ size_t tcp::ConnectionSocket::send_data(const std::vector<char> &data, size_t st
     }
 }
 
-std::vector<char> tcp::ConnectionSocket::receive_data()
+size_t tcp::ConnectionSocket::receive_data(std::vector<char> &buffer, size_t buffer_cursor, bool read_once)
 {
     try
     {
-        std::vector<char> buffer;
         size_t total_received = 0;
         while (true)
         {
-            int remaining_space = buffer.size() - total_received;
-            if (remaining_space < constants::BUFFER_EXPANTION_SIZE)
+            int remaining_space = (buffer.size() - buffer_cursor) - total_received;
+            if (remaining_space <= 0)
             {
-                buffer.resize(buffer.size() + constants::BUFFER_EXPANTION_SIZE);
-                remaining_space = buffer.size() - total_received;
+                break;
             }
-            long bytes_received = recv(socket_fd.fd(), buffer.data() + total_received, remaining_space, 0);
+
+            long bytes_received = recv(socket_fd.fd(), buffer.data() + buffer_cursor + total_received, remaining_space, 0);
+
             if (bytes_received == 0)
             {
                 throw tcp::exceptions::CanNotReceiveData{"Connection closed by peer."};
@@ -208,9 +218,12 @@ std::vector<char> tcp::ConnectionSocket::receive_data()
                 }
             }
             total_received += bytes_received;
+            if (read_once)
+            {
+                break;
+            }
         }
-        buffer.resize(total_received);
-        return buffer;
+        return total_received;
     }
     catch (const std::exception &e)
     {
@@ -219,6 +232,44 @@ std::vector<char> tcp::ConnectionSocket::receive_data()
     catch (...)
     {
         throw tcp::exceptions::CanNotReceiveData{"TCP: Unknown error while receiving data."};
+    }
+}
+
+void tcp::ConnectionSocket::set_socket_blocking(time_t blocking_timeout_in_milliseconds)
+{
+    int flags = fcntl(socket_fd.fd(), F_GETFL, 0);
+    if (flags == -1)
+        flags = 0;
+    flags &= ~O_NONBLOCK;
+    if (fcntl(socket_fd.fd(), F_SETFL, flags) < 0)
+    {
+        int err = errno;
+        throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
+    }
+
+    if (blocking_timeout_in_milliseconds > 0)
+    {
+        struct timeval timeout;
+        timeout.tv_sec = blocking_timeout_in_milliseconds / 1000;
+        timeout.tv_usec = (blocking_timeout_in_milliseconds % 1000) * 1000;
+        if (setsockopt(socket_fd.fd(), SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+        {
+            int err = errno;
+            throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
+        }
+    }
+}
+
+void tcp::ConnectionSocket::set_socket_non_blocking()
+{
+    int flags = fcntl(socket_fd.fd(), F_GETFL, 0);
+    if (flags == -1)
+        flags = 0;
+    flags |= O_NONBLOCK;
+    if (fcntl(socket_fd.fd(), F_SETFL, flags) < 0)
+    {
+        int err = errno;
+        throw tcp::exceptions::CanNotSetSocketOptions{std::string("TCP: ") + std::string(strerror(err))};
     }
 }
 

@@ -14,58 +14,117 @@
 
 namespace http
 {
-    namespace request_status
+    /// Request/response lifecycle states for a single connection.
+    enum RequestStatus
     {
-        const int CONNECTION_ESTABLISHED = 0;
-        const int READING_REQUEST_LINE = 1;
-        const int REQUEST_LINE_DONE = 2;
-        const int READING_HEADERS = 3;
-        const int HEADERS_DONE = 4;
-        const int READING_BODY = 5;
-        const int REQUEST_READING_DONE = 6;
-        const int SENDING_RESPONSE = 7;
-        const int COMPLETED = 8;
-        const int CLIENT_ERROR = 9;
-        const int SERVER_ERROR = 10;
-    }
+        CONNECTION_ESTABLISHED,
+        READING_REQUEST_LINE,
+        REQUEST_LINE_DONE,
+        READING_HEADERS,
+        HEADERS_DONE,
+        READING_BODY,
+        REQUEST_READING_DONE,
+        REQUEST_HANDLING_DONE,
+        SENDING_STATUS_LINE,
+        SENDING_HEADERS,
+        SENDING_RESPONSE_HEAD_DONE,
+        SENDING_BODY,
+        SENDING_BUFFER_FLUSHING,
+        COMPLETED,
+        CLIENT_ERROR,
+        SERVER_ERROR
+    };
 
-    namespace connection_status
+    /// Bit flags describing current I/O interest for the peer socket.
+    enum ConnectionStatus
     {
-        const int IDLE = 0;
-        const int READING = 1;
-        const int WRITING = 2;
-    }
+        IDLE = 0,
+        READING = 1,
+        WRITING = 2
+    };
 
+    /// Represents a single HTTP connection between the server and a client.
     class HttpConnection
     {
+    public:
+        /// Mutable request context while parsing and body streaming are in progress.
+        struct CurrentRequest
+        {
+        private:
+            HttpRequest request;
+            RequestStatus status;
+
+            bool has_chunked_body = false;
+            long content_length = -1;
+            long remaining_content_length = -1;
+            // Cursor into body bytes consumed from the shared connection buffer.
+            long body_stream_cursor = 0;
+            // Cursor marking end of currently available body bytes in buffer.
+            long body_end_cursor = 0;
+
+        public:
+            CurrentRequest();
+
+            const RequestStatus get_status() const noexcept
+            {
+                return status;
+            }
+
+            friend class HttpConnection;
+        };
+
+        /// Mutable response context while headers/body are being serialized.
+        struct CurrentResponse
+        {
+        private:
+            HttpResponse response;
+            bool has_chunked_body = false;
+            long content_length = -1;
+            long remaining_content_length = -1;
+
+            std::map<std::string, std::string>::const_iterator currently_sending_header;
+
+            bool has_fixed_length_body() const
+            {
+                return content_length != -1;
+            }
+
+        public:
+            CurrentResponse() = default;
+            friend class HttpConnection;
+        };
+
     private:
+        // Shared byte buffer reused across request parsing and response writes.
         std::vector<char> buffer;
         tcp::ConnectionSocket client_socket;
-        http::HttpRequest current_request;
-        http::HttpResponse current_response;
+        CurrentRequest current_request;
+        CurrentResponse current_response;
         time_t last_activity_time = 0;
-        int current_request_status = request_status::CONNECTION_ESTABLISHED;
         long buffer_cursor = 0;
+        long buffer_size = 0;
         size_t parser_cursor = 0;
-        int peer_status = connection_status::IDLE;
+        int peer_status = ConnectionStatus::IDLE;
 
         void read_from_client();
         void read_request_line();
         void read_headers();
-        void read_body(long content_length);
-        void read_body(); // For chunked transfer encoding
+        void read_body();
+        long read_fixed_body();
+        long read_chunksize_line();
+        long read_body_chunk();
         void log_info(const std::string &message) const;
         void log_warning(const std::string &message) const;
         void log_error(const std::string &message) const;
 
+        void send_to_client();
+
+        void reposition_buffer();
+
     public:
         /// @brief Construct a new Http Connection object
         /// @param socket The TCP connection socket associated with this HTTP connection
-        explicit HttpConnection(tcp::ConnectionSocket &&socket)
-            : client_socket(std::move(socket))
-        {
-            last_activity_time = time(nullptr);
-        }
+        explicit HttpConnection(tcp::ConnectionSocket &&socket);
 
         HttpConnection(const HttpConnection &) = delete;
         HttpConnection &operator=(const HttpConnection &) = delete;
@@ -73,40 +132,50 @@ namespace http
         HttpConnection(HttpConnection &&) = default;
         HttpConnection &operator=(HttpConnection &&) = default;
 
-        void read_request();
+        bool inactive = false;
+
+        /// Reads from socket and advances parsing until request line + headers are complete.
+        void read_and_build_request_head();
+        /// Executes user handler against the currently parsed request.
         void handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept;
 
+        /// Serializes and sends response head/body according to current response state.
         void send_response();
+
+        int fd() const noexcept
+        {
+            return client_socket.fd();
+        }
 
         void set_peer_idle() noexcept
         {
-            peer_status = connection_status::IDLE;
+            peer_status = ConnectionStatus::IDLE;
             last_activity_time = time(nullptr);
         }
 
         void set_peer_reading() noexcept
         {
-            peer_status |= connection_status::READING;
+            peer_status |= ConnectionStatus::READING;
         }
 
         void set_peer_writing() noexcept
         {
-            peer_status |= connection_status::WRITING;
+            peer_status |= ConnectionStatus::WRITING;
         }
 
         const bool peer_is_readable() const noexcept
         {
-            return peer_status & connection_status::WRITING;
+            return peer_status & ConnectionStatus::WRITING;
         }
 
         const bool peer_is_writable() const noexcept
         {
-            return peer_status & connection_status::READING;
+            return peer_status & ConnectionStatus::READING;
         }
 
-        const int status() const noexcept
+        const CurrentRequest &get_current_request() const noexcept
         {
-            return current_request_status;
+            return current_request;
         }
 
         const time_t idle_time() const noexcept
