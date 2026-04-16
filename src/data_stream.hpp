@@ -11,6 +11,12 @@
 namespace http
 {
 
+    /// Stateful byte stream wrapper built from provider callbacks.
+    ///
+    /// A stream is represented by three callbacks:
+    /// - updater: pulls or advances producer state
+    /// - view provider: returns current readable window
+    /// - cursor advancer: commits consumed bytes to producer state
     class DataStream
     {
     public:
@@ -19,10 +25,15 @@ namespace http
 
         struct StreamView
         {
+            /// Pointer to the current readable region.
             char *data;
+            /// Total bytes available in the current region.
             size_t size;
+            /// Read cursor inside the current region.
             size_t cursor;
+            /// True when producer will provide no more data.
             bool is_closed;
+            /// True when producer encountered an unrecoverable stream error.
             bool error;
         };
         struct StreamPipelineBroken : public std::runtime_error
@@ -107,6 +118,7 @@ namespace http
 
                 if (current_cursor >= available_data_size)
                 {
+                    // Request producer to refresh stream view when current window is exhausted.
                     read_more();
                     view = get_stream_view();
                     available_data_size = view.size;
@@ -145,6 +157,7 @@ namespace http
             }
         }
 
+        /// Keep consuming until producer signals end of stream. Throws if producer signals an error.
         void flush()
         {
             while (true)
@@ -158,27 +171,38 @@ namespace http
                 {
                     throw StreamPipelineBroken("DataStream: Stream pipeline is broken.");
                 }
+                // Keep requesting producer updates until stream is closed.
                 read_more();
             }
         }
 
+        /// @brief Sets the provider for the stream view.
+        /// @param provider A function that returns the current state of input stream.
         void set_stream_view_provider(ProviderFunction<StreamView> provider)
         {
             stream_view_provider = provider;
         }
 
+        /// @brief Sets the updater function for the stream.
+        /// @param updater A function that signals the producer to advance its state or provide more data.
         void set_stream_updater(ProviderFunction<void> updater)
         {
             stream_updater = updater;
         }
 
+        /// @brief Sets the cursor advancer function for the stream.
+        /// @param advancer A function that advances the cursor position within the stream.
         void set_cursor_advancer(std::function<void(size_t)> advancer)
         {
             cursor_advancer = advancer;
         }
 
+        /// @brief Sets the provider stream for this stream.
+        /// @param other The other data stream to use as a provider.
         void set_provider_stream(DataStream &other)
         {
+            /// Copies provider callbacks from another stream.
+            /// Both streams will then observe and advance the same provider state.
             stream_updater = other.stream_updater;
             stream_view_provider = other.stream_view_provider;
             cursor_advancer = other.cursor_advancer;
