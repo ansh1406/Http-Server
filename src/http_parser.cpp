@@ -194,6 +194,7 @@ long http::HttpParser::has_content_length_header(const std::map<std::string, std
 
 size_t http::HttpParser::encode_response_status_line(const std::string &version, int status_code, const std::string &reason_phrase, std::vector<char> &buffer, size_t cursor)
 {
+    // version status-code reason_phrase\r\n
     std::string status_line = version + " " + std::to_string(status_code) + " " + reason_phrase + "\r\n";
     if (status_line.size() + cursor > buffer.size())
     {
@@ -206,6 +207,7 @@ size_t http::HttpParser::encode_response_status_line(const std::string &version,
 
 size_t http::HttpParser::encode_response_header(const std::string &header, const std::string &value, std::vector<char> &buffer, size_t cursor)
 {
+    // header:value\r\n
     const size_t required_size = header.size() + value.size() + 3; // ':' + "\r\n"
     if (cursor + required_size > buffer.size())
     {
@@ -227,6 +229,7 @@ size_t http::HttpParser::encode_response_header(const std::string &header, const
 
 size_t http::HttpParser::encode_end_of_headers(std::vector<char> &buffer, size_t cursor)
 {
+    // \r\n
     if (cursor + 2 > buffer.size())
     {
         return 0;
@@ -240,6 +243,7 @@ size_t http::HttpParser::encode_end_of_headers(std::vector<char> &buffer, size_t
 
 size_t http::HttpParser::encode_chunksize_line(size_t chunk_size, unsigned int width, std::vector<char> &buffer, size_t cursor)
 {
+    // XXXX\r\n X = Hex digit.
     size_t digits = width;
     size_t value = chunk_size;
 
@@ -272,6 +276,7 @@ size_t http::HttpParser::encode_chunksize_line(size_t chunk_size, unsigned int w
 
 size_t http::HttpParser::encode_chunk_end(std::vector<char> &buffer, size_t cursor)
 {
+    // \r\n
     if (cursor + 2 > buffer.size())
     {
         return 0;
