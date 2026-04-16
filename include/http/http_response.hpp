@@ -33,6 +33,7 @@ namespace http
         /// @brief A function type for generating the body of an HTTP response.
         /// This function should write the body content into the provided data vector and return the number of bytes written.
         /// If the body streaming is complete, the function should return -1.
+        /// Successive calls are expected to continue where the previous call ended.
         using WriterFunction = std::function<long(std::vector<char> &data)>;
 
         /// @brief Default constructor for HttpResponse.
@@ -50,6 +51,7 @@ namespace http
 
         HttpResponse(const HttpResponse &) = delete;
         HttpResponse &operator=(const HttpResponse &) = delete;
+        /// Move keeps response body stream state valid in the destination object.
         HttpResponse(HttpResponse &&other) noexcept;
         HttpResponse &operator=(HttpResponse &&other) noexcept;
 
@@ -71,10 +73,12 @@ namespace http
         /// @brief Sets the body generator function.
         /// The function should write the body content into the provided data vector and return the number of bytes written.
         /// If the body streaming is complete, the function should return -1.
+        /// Replaces any previously configured body generator/body data source.
         /// @param writer A WriterFunction that generates the body content.
         void set_body_generator(WriterFunction writer);
 
         /// @brief Sets the body of the HTTP response.
+        /// Replaces any previously configured streaming generator.
         /// @param data std::vector<char> representing the body content.
         void set_body(const std::vector<char> &data);
 
