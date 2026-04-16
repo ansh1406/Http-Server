@@ -31,12 +31,13 @@ namespace http
         /// @param raw_request vector of chars representing the raw HTTP request.
         /// @param cursor Starting position for parsing.
         /// @return Returns an HttpRequestLine struct containing method, uri, and version.
+        /// Parsing stops at CRLF for the request line.
         static HttpRequestLine parse_request_line(const std::vector<char> &raw_request, size_t cursor = 0);
 
         /// @brief Parses the headers from the raw HTTP request
         /// @param raw_request vector of chars representing the raw HTTP request.
         /// @param cursor Starting position for parsing.
-        /// @return Returns a map of header key-value pairs. All keys are converted to lowercase.
+        /// @return Returns a map of header key-value pairs. Header names are normalized to lowercase.
         static std::map<std::string, std::string> parse_headers(const std::vector<char> &raw_request, size_t cursor = 0);
 
         /// @brief Validates the request line format.
@@ -46,12 +47,12 @@ namespace http
 
         /// @brief Checks if the header list contains a Content-Length header and returns its value if present.
         /// @param headers map of header key-value pairs.
-        /// @return Returns the value of the Content-Length header if present, or -1 if not found.
+        /// @return Returns parsed Content-Length value, or -1 if header is absent.
         static long has_content_length_header(const std::map<std::string, std::string> &headers);
 
         /// @brief Checks if the header list contains a Transfer-Encoding header with chunked value as it's last value.
         /// @param headers map of header key-value pairs.
-        /// @return Returns true if the last value in Transfer-Encoding header is chunked, false otherwise.
+        /// @return Returns true only if the final Transfer-Encoding token is "chunked".
         static bool has_transfer_encoding_chunked_header(const std::map<std::string, std::string> &headers);
 
         /// @brief Encodes the response status line into the buffer.
