@@ -33,6 +33,7 @@ namespace http
 
             RequestBodyStream(const RequestBodyStream &) = delete;
             RequestBodyStream &operator=(const RequestBodyStream &) = delete;
+            /// Move transfers ownership of underlying request body stream state.
             RequestBodyStream(RequestBodyStream &&other) noexcept;
             RequestBodyStream &operator=(RequestBodyStream &&other) noexcept;
 
@@ -45,10 +46,11 @@ namespace http
             bool is_stream_closed() const;
 
             /// @brief Reads the next chunk of data from the stream.
+            /// Successive calls continue consuming from the current stream position.
             /// @param buffer The buffer to read data into.
             /// @param buffer_cursor The position in the buffer to start reading from.
             /// @param max_size The maximum number of bytes to read.
-            /// @return The number of bytes read.
+            /// @return The number of bytes read for this call. Returns 0 when no bytes are currently available.
             /// @throws StreamError if an error occurs while reading.
             size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0, size_t max_size = static_cast<size_t>(-1)) const;
 
