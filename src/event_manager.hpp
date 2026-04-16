@@ -9,6 +9,7 @@
 
 namespace tcp
 {
+    /// Bit flags describing readiness returned by the OS event backend.
     enum socket_status
     {
         IDLE = 0,
@@ -49,6 +50,7 @@ namespace tcp
         };
     }
 
+    /// Cross-platform event poller wrapper (epoll/wepoll via pimpl).
     class EventManager
     {
         struct Impl;
@@ -59,6 +61,8 @@ namespace tcp
         time_t timeout;
 
     public:
+        /// @param max_events Maximum number of events returned in one wait call.
+        /// @param timeout Wait timeout used by the backend (platform-specific unit in implementation).
         explicit EventManager(const int max_events, const time_t timeout);
         EventManager(const EventManager &) = delete;
         EventManager &operator=(const EventManager &) = delete;
@@ -66,16 +70,23 @@ namespace tcp
         EventManager(EventManager &&other) noexcept;
         EventManager &operator=(EventManager &&other) noexcept;
 
+        /// Registers socket for readability notifications and returns backend registration id.
         int register_for_read(const int fd);
+        /// Registers socket for writability notifications and returns backend registration id.
         int register_for_write(const int fd);
+        /// Removes a previously registered socket id from backend polling.
         void remove_socket(const int id);
 
         ~EventManager();
 
+        /// Blocks until events are available or timeout expires, then returns ready ids.
         std::vector<int> wait_for_events();
 
+        /// True if last wait reported readable readiness for this id.
         const bool is_readable(const int id) const;
+        /// True if last wait reported writable readiness for this id.
         const bool is_writable(const int id) const;
+        /// Clears cached readiness flags for this id after event handling.
         void clear_status(const int id);
     };
 }
