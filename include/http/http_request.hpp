@@ -50,7 +50,7 @@ namespace http
             /// @param max_size The maximum number of bytes to read.
             /// @return The number of bytes read.
             /// @throws StreamError if an error occurs while reading.
-            size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0, size_t max_size = static_cast<size_t>(-1));
+            size_t get_next(std::vector<char> &buffer, size_t buffer_cursor = 0, size_t max_size = static_cast<size_t>(-1)) const;
 
             friend struct HttpRequestBuilder;
         };

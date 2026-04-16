@@ -31,7 +31,7 @@ namespace http
 
     HttpRequest::RequestBodyStream::~RequestBodyStream() { delete pimpl; }
 
-    size_t HttpRequest::RequestBodyStream::get_next(std::vector<char> &buffer, size_t buffer_cursor, size_t max_size)
+    size_t HttpRequest::RequestBodyStream::get_next(std::vector<char> &buffer, size_t buffer_cursor, size_t max_size) const
     {
         try
         {
