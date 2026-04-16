@@ -529,16 +529,21 @@ void http::HttpConnection::send_response()
             // Read only if a certain minimum buffer size is available.
             if (buffer.size() - buffer_size > 128) // Placeholder
             {
-                long bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size + 6); // 6 is Empty space for chunk size in hex and \r\n.
+                size_t maximum_chunk_size = buffer.size() - buffer_size - 6 - 2;                                                                // 6 is Empty space for chunk size in hex and \r\n, 2 is for the ending \r\n after chunk data.
+                long bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size + 6, maximum_chunk_size); // 6 is Empty space for chunk size in hex and \r\n.
                 if (bytes_read > 0)
                 {
                     size_t bytes_encoded = HttpParser::encode_chunksize_line(bytes_read, 4, buffer, buffer_size); // in HHHH format.
                     buffer_size += bytes_read + bytes_encoded;
+                    size_t chunk_end_bytes = HttpParser::encode_chunk_end(buffer, buffer_size);
+                    buffer_size += chunk_end_bytes;
                 }
                 if (bytes_read == -1)
                 {
                     size_t bytes_encoded = HttpParser::encode_chunksize_line(0, 1, buffer, buffer_size); // Last chunk with size 0.
                     buffer_size += bytes_encoded;
+                    size_t chunk_end_bytes = HttpParser::encode_chunk_end(buffer, buffer_size);
+                    buffer_size += chunk_end_bytes;
                     current_request.status = RequestStatus::SENDING_BUFFER_FLUSHING;
                 }
             }
