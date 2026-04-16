@@ -240,30 +240,45 @@ size_t http::HttpParser::encode_end_of_headers(std::vector<char> &buffer, size_t
 
 size_t http::HttpParser::encode_chunksize_line(size_t chunk_size, unsigned int width, std::vector<char> &buffer, size_t cursor)
 {
-    if (width + 2 + cursor > buffer.size())
+    size_t digits = width;
+    size_t value = chunk_size;
+
+    if (cursor + digits + 2 > buffer.size())
     {
         return 0;
     }
-    
-    int place_no = 0;
-    while (chunk_size > 0)
+
+    for (size_t place_no = 0; place_no < digits; ++place_no)
     {
-        unsigned int place = cursor + width - 1 - place_no;
-        unsigned int digit = chunk_size % 16;
+        unsigned int digit = static_cast<unsigned int>(chunk_size % 16);
+        size_t place = cursor + digits - 1 - place_no;
         if (digit < 10)
         {
-            buffer[place] = '0' + digit;
+            buffer[place] = static_cast<char>('0' + digit);
         }
         else
         {
-            buffer[place] = 'a' + digit - 10;
+            buffer[place] = static_cast<char>('a' + digit - 10);
         }
         chunk_size /= 16;
     }
 
-    cursor += width;
+    cursor += digits;
     buffer[cursor++] = '\r';
     buffer[cursor++] = '\n';
 
-    return width + 2;
+    return digits + 2;
+}
+
+size_t http::HttpParser::encode_chunk_end(std::vector<char> &buffer, size_t cursor)
+{
+    if (cursor + 2 > buffer.size())
+    {
+        return 0;
+    }
+
+    buffer[cursor++] = '\r';
+    buffer[cursor++] = '\n';
+
+    return 2;
 }
