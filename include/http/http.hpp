@@ -47,11 +47,17 @@ namespace http
     /// @param external_logging A boolean flag indicating whether to enable external logging. If set to true, the server will log information about incoming requests, responses, and other events to an external logging system. If set to false, the server will log to stdout and stderr. Default is false for this library.
     struct HttpServerConfig
     {
+        /// Port the server listens on.
         unsigned short port = 8080;
+        /// Maximum queued connections waiting to be accepted.
         unsigned int max_pending_connections = 128;
+        /// Maximum concurrent active connections.
         unsigned int max_concurrent_connections = 128;
+        /// Idle timeout for a connection, in seconds.
         time_t inactive_connection_timeout_in_seconds = 60;
+        /// Enables built-in logging.
         bool enable_logging = false;
+        /// Sends logs to an external sink instead of stdout/stderr.
         bool external_logging = false;
     };
 
@@ -86,7 +92,7 @@ namespace http
 
 /*
 A simple implementation of an HTTP server using this library:
-#include "http.hpp"
+#include "http/http.hpp"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -95,18 +101,20 @@ int main()
 {
     try
     {
-        http::HttpServerConfig config{8080, 100, 100, 60, true, false};
+        http::HttpServerConfig config;
+        config.port = 8080;
+
         http::HttpServer server(config, [](const http::HttpRequest &req, http::HttpResponse &res) {
             if (req.method == "GET" && req.uri == "/hello") {
                 res.set_status_code(200);
                 res.set_status_message("OK");
-                res.add_header("Content-Type", "text/plain");
+                res.set_header("Content-Type", "text/plain");
                 std::string body = "Hello, World!";
                 res.set_body(std::vector<char>(body.begin(), body.end()));
             } else {
                 res.set_status_code(404);
                 res.set_status_message("Not Found");
-                res.add_header("Content-Type", "text/plain");
+                res.set_header("Content-Type", "text/plain");
                 std::string body = "Not Found";
                 res.set_body(std::vector<char>(body.begin(), body.end()));
             }
