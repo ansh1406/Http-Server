@@ -26,72 +26,72 @@ namespace
     };
 }
 
-http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<char> &raw_request, size_t &pos)
+http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<char> &raw_request, size_t cursor)
 {
     http::HttpRequestLine request_line;
-    size_t start = pos;
+    size_t start = cursor;
     // Find method
-    while (pos < raw_request.size() && raw_request[pos] != ' ')
+    while (cursor < raw_request.size() && raw_request[cursor] != ' ')
     {
-        pos++;
+        cursor++;
     }
-    request_line.method = std::string(raw_request.begin() + start, raw_request.begin() + pos);
-    pos++;
+    request_line.method = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
+    cursor++;
 
     // Find URI
-    start = pos;
-    while (pos < raw_request.size() && raw_request[pos] != ' ')
+    start = cursor;
+    while (cursor < raw_request.size() && raw_request[cursor] != ' ')
     {
-        pos++;
+        cursor++;
     }
-    request_line.uri = std::string(raw_request.begin() + start, raw_request.begin() + pos);
-    pos++;
+    request_line.uri = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
+    cursor++;
 
     // Find HTTP version
-    start = pos;
-    while (pos < raw_request.size() && !(raw_request[pos] == '\r' && raw_request[pos + 1] == '\n'))
+    start = cursor;
+    while (cursor < raw_request.size() && !(raw_request[cursor] == '\r' && raw_request[cursor + 1] == '\n'))
     {
-        pos++;
+        cursor++;
     }
-    request_line.version = std::string(raw_request.begin() + start, raw_request.begin() + pos);
-    pos += 2;
+    request_line.version = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
+    cursor += 2;
 
     return request_line;
 }
 
-std::map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t &pos)
+std::map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t cursor)
 {
     std::map<std::string, std::string> headers;
-    while (pos < raw_request.size())
+    while (cursor < raw_request.size())
     {
-        if (raw_request[pos] == '\r' && raw_request[pos + 1] == '\n')
+        if (raw_request[cursor] == '\r' && raw_request[cursor + 1] == '\n')
         {
-            pos += 2;
+            cursor += 2;
             break;
         }
 
-        size_t start = pos;
-        while (pos < raw_request.size() && raw_request[pos] != ':')
+        size_t start = cursor;
+        while (cursor < raw_request.size() && raw_request[cursor] != ':')
         {
-            pos++;
+            cursor++;
         }
-        std::string key = std::string(raw_request.begin() + start, raw_request.begin() + pos);
+        std::string key = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
         for (auto &c : key)
             c = std::tolower(c);
-        pos++;
+        cursor++;
 
-        while (pos < raw_request.size() && (raw_request[pos] == ' ' || raw_request[pos] == '\t'))
+        while (cursor < raw_request.size() && (raw_request[cursor] == ' ' || raw_request[cursor] == '\t'))
         {
-            pos++;
+            cursor++;
         }
 
-        start = pos;
-        while (pos < raw_request.size() && !(raw_request[pos] == '\r' && raw_request[pos + 1] == '\n'))
+        start = cursor;
+        while (cursor < raw_request.size() && !(raw_request[cursor] == '\r' && raw_request[cursor + 1] == '\n'))
         {
-            pos++;
+            cursor++;
         }
-        std::string value = std::string(raw_request.begin() + start, raw_request.begin() + pos);
-        pos += 2;
+        std::string value = std::string(raw_request.begin() + start, raw_request.begin() + cursor);
+        cursor += 2;
 
         if (headers.find(key) != headers.end())
         {
