@@ -17,6 +17,13 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
 {
     try
     {
+        long content_length = http::HttpParser::has_content_length_header(current_request.request.headers());
+        bool has_chunked_body = http::HttpParser::has_transfer_encoding_chunked_header(current_request.request.headers());
+        current_request.content_length = content_length;
+        current_request.remaining_content_length = content_length;
+        current_request.has_chunked_body = has_chunked_body;
+
+        reposition_buffer();
         if (current_request.has_chunked_body && current_request.content_length != -1)
         {
             log_error("Both Content-Length and chunked Transfer-Encoding headers present in request.");
@@ -565,11 +572,13 @@ void http::HttpConnection::send_response()
     {
         log_error(std::string("Error sending response: ") + e.what());
         current_request.status = RequestStatus::SERVER_ERROR;
+        inactive = true;
     }
     catch (...)
     {
         log_error("Unknown error sending response.");
         current_request.status = RequestStatus::SERVER_ERROR;
+        inactive = true;
     }
 }
 
