@@ -14,6 +14,7 @@
 
 namespace http
 {
+    /// Request/response lifecycle states for a single connection.
     enum RequestStatus
     {
         CONNECTION_ESTABLISHED,
@@ -34,6 +35,7 @@ namespace http
         SERVER_ERROR
     };
 
+    /// Bit flags describing current I/O interest for the peer socket.
     enum ConnectionStatus
     {
         IDLE = 0,
@@ -41,9 +43,11 @@ namespace http
         WRITING = 2
     };
 
+    /// Represents a single HTTP connection between the server and a client.
     class HttpConnection
     {
     public:
+        /// Mutable request context while parsing and body streaming are in progress.
         struct CurrentRequest
         {
         private:
@@ -53,7 +57,9 @@ namespace http
             bool has_chunked_body = false;
             long content_length = -1;
             long remaining_content_length = -1;
+            // Cursor into body bytes consumed from the shared connection buffer.
             long body_stream_cursor = 0;
+            // Cursor marking end of currently available body bytes in buffer.
             long body_end_cursor = 0;
 
         public:
@@ -67,6 +73,7 @@ namespace http
             friend class HttpConnection;
         };
 
+        /// Mutable response context while headers/body are being serialized.
         struct CurrentResponse
         {
         private:
@@ -88,6 +95,7 @@ namespace http
         };
 
     private:
+        // Shared byte buffer reused across request parsing and response writes.
         std::vector<char> buffer;
         tcp::ConnectionSocket client_socket;
         CurrentRequest current_request;
@@ -126,9 +134,12 @@ namespace http
 
         bool inactive = false;
 
+        /// Reads from socket and advances parsing until request line + headers are complete.
         void read_and_build_request_head();
+        /// Executes user handler against the currently parsed request.
         void handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept;
 
+        /// Serializes and sends response head/body according to current response state.
         void send_response();
 
         int fd() const noexcept
