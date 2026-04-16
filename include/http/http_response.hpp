@@ -13,6 +13,7 @@
 
 namespace http
 {
+    /// @brief Container for HTTP response data.
     class HttpResponse
     {
     private:
@@ -29,9 +30,14 @@ namespace http
         std::map<std::string, std::string> _headers;
 
     public:
+        /// @brief A function type for generating the body of an HTTP response.
+        /// This function should write the body content into the provided data vector and return the number of bytes written.
+        /// If the body streaming is complete, the function should return -1.
         using WriterFunction = std::function<long(std::vector<char> &data)>;
 
-        /// @brief Default constructor for HttpResponse. Initializes an empty HTTP response with HTTP version set to HTTP/1.1. Verison is set to HTTP/1.1 by default and cannot be changed because of library constraints.
+        /// @brief Default constructor for HttpResponse.
+        /// Initializes an empty HTTP response with HTTP version set to HTTP/1.1.
+        /// Verison is set to HTTP/1.1 by default and cannot be changed because of library constraints.
         HttpResponse();
 
         /// @brief Constructor for HttpResponse with status code and message.
@@ -58,14 +64,20 @@ namespace http
 
         /// @brief Sets the HTTP status code.
         void set_status_code(int status_code) noexcept;
+
         /// @brief Sets the HTTP status message.
         void set_status_message(const std::string &reason_phrase);
-        /// @brief Sets or updates the body of the HTTP response.
-        /// @param body ResponseBodyStream representing the body content.
+
+        /// @brief Sets the body generator function.
+        /// The function should write the body content into the provided data vector and return the number of bytes written.
+        /// If the body streaming is complete, the function should return -1.
+        /// @param writer A WriterFunction that generates the body content.
         void set_body_generator(WriterFunction writer);
+
         /// @brief Sets the body of the HTTP response.
         /// @param data std::vector<char> representing the body content.
         void set_body(const std::vector<char> &data);
+
         /// @brief Sets or updates a header in the HTTP response.
         /// @param key Header key as a std::string.
         /// @param value Header value as a std::string.
