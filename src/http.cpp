@@ -24,7 +24,7 @@ void initialize_logger(const bool external_logging)
         {
             try
             {
-                Logger::set_external_logging("server.log");
+                Logger::set_external_logging();
             }
             catch (...)
             {
