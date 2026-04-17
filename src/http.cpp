@@ -152,7 +152,7 @@ void http::HttpServer::Impl::start_event_loop()
                         request_event_manager.remove_socket(conn_id);
                         {
                             std::lock_guard<std::mutex> lock(handler_mutex);
-                            waiting_for_handler_connections.push(conn_id);
+                            waiting_for_handler_connections.push(&connection);
                         }
                         handler_cv.notify_one();
                     }
@@ -164,20 +164,21 @@ void http::HttpServer::Impl::start_event_loop()
                         {
                             {
                                 std::lock_guard<std::mutex> lock(completed_connections_mutex);
-                                completed_connections.push(conn_id);
+                                completed_connections.push(&connection);
                             }
                         }
                         else
                         {
                             {
                                 std::lock_guard<std::mutex> lock(response_mutex);
-                                waiting_to_send_response.push(conn_id);
+                                waiting_to_send_response.push(&connection);
                             }
                             response_cv.notify_one();
                         }
                     }
                 }
                 mark_inactive_connections();
+                remove_completed_connections();
             }
             catch (const std::exception &e)
             {
@@ -224,10 +225,18 @@ void http::HttpServer::Impl::remove_completed_connections()
     std::lock_guard<std::mutex> lock(completed_connections_mutex);
     while (!completed_connections.empty())
     {
-        int conn_id = completed_connections.front();
+        HttpConnection *completed_connection = completed_connections.front();
         completed_connections.pop();
+
+        auto id_it = connection_ids.find(completed_connection);
+        if (id_it == connection_ids.end())
+        {
+            continue;
+        }
+
+        int conn_id = id_it->second;
+        connection_ids.erase(id_it);
         connections.erase(conn_id);
-        log_info("Connection closed: " + std::to_string(conn_id));
     }
 }
 
@@ -237,8 +246,10 @@ void http::HttpServer::Impl::accept_new_connections()
     for (auto &conn : new_connections)
     {
         int conn_id = request_event_manager.register_for_read(conn.fd());
-        connections.insert({conn_id, http::HttpConnection(std::move(conn))});
-        log_info("Connection accepted: " + connections.at(conn_id).get_ip() + ":" + std::to_string(connections.at(conn_id).get_port()));
+        auto insert_result = connections.emplace(conn_id, http::HttpConnection(std::move(conn)));
+        HttpConnection *connection = &insert_result.first->second;
+        connection_ids[connection] = conn_id;
+        log_info("Connection accepted: " + connection->get_ip() + ":" + std::to_string(connection->get_port()));
     }
 }
 
@@ -251,42 +262,53 @@ void http::HttpServer::Impl::initialize_handler_threads()
         {
             try
             {
-                int conn_id;
+                HttpConnection *connection = nullptr;
                 {
                     std::unique_lock<std::mutex> lock(handler_mutex);
                     handler_cv.wait(lock, [this]()
                                     { return !waiting_for_handler_connections.empty(); });
-                    conn_id = waiting_for_handler_connections.front();
+                    connection = waiting_for_handler_connections.front();
                     waiting_for_handler_connections.pop();
                 }
 
                 try
                 {
-                    HttpConnection &connection = connections.at(conn_id);
-                    connection.handle_request(request_handler);
-                    if (connection.inactive)
+                    if (!connection)
+                    {
+                        continue;
+                    }
+
+                    connection->handle_request(request_handler);
+                    if (connection->inactive)
                     {
                         {
                             std::lock_guard<std::mutex> lock(completed_connections_mutex);
-                            completed_connections.push(conn_id);
+                            completed_connections.push(connection);
                         }
                         continue;
                     }
                     {
                         std::lock_guard<std::mutex> lock(response_mutex);
-                        waiting_to_send_response.push(conn_id);
+                        waiting_to_send_response.push(connection);
                     }
                     response_cv.notify_one();
                 }
                 catch (const std::exception &e)
                 {
-                    std::lock_guard<std::mutex> lock(completed_connections_mutex);
-                    completed_connections.push(conn_id);
+                    (void)e;
+                    if (connection)
+                    {
+                        std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                        completed_connections.push(connection);
+                    }
                 }
                 catch (...)
                 {
-                    std::lock_guard<std::mutex> lock(completed_connections_mutex);
-                    completed_connections.push(conn_id);
+                    if (connection)
+                    {
+                        std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                        completed_connections.push(connection);
+                    }
                 }
             }
             catch (...)
@@ -315,11 +337,16 @@ void http::HttpServer::Impl::initialize_response_thread()
 
                 while (!waiting_to_send_response.empty())
                 {
-                    int conn_id = waiting_to_send_response.front();
+                    HttpConnection *connection = waiting_to_send_response.front();
                     waiting_to_send_response.pop();
 
-                    int id = response_event_manager.register_for_write(connections.at(conn_id).fd());
-                    response_sending_connections[id] = conn_id;
+                    if (!connection)
+                    {
+                        continue;
+                    }
+
+                    int id = response_event_manager.register_for_write(connection->fd());
+                    response_sending_connections[id] = connection;
                 }
             }
 
@@ -333,30 +360,42 @@ void http::HttpServer::Impl::initialize_response_thread()
                 std::vector<int> active_connections = response_event_manager.wait_for_events();
                 for (auto id : active_connections)
                 {
-                    int conn_id = response_sending_connections.at(id);
-                    HttpConnection &connection = connections.at(conn_id);
+                    auto response_it = response_sending_connections.find(id);
+                    if (response_it == response_sending_connections.end())
+                    {
+                        continue;
+                    }
+
+                    HttpConnection *connection = response_it->second;
+                    if (!connection)
+                    {
+                        response_event_manager.remove_socket(id);
+                        response_sending_connections.erase(response_it);
+                        continue;
+                    }
+
                     try
                     {
-                        connection.send_response();
+                        connection->send_response();
                     }
                     catch (const std::exception &e)
                     {
                         log_error(std::string("Error sending response: ") + e.what());
-                        connection.inactive = true;
+                        connection->inactive = true;
                     }
                     catch (...)
                     {
                         log_error("Unknown error sending response.");
-                        connection.inactive = true;
+                        connection->inactive = true;
                     }
 
-                    if (connection.get_current_request().get_status() == RequestStatus::COMPLETED || connection.inactive)
+                    if (connection->get_current_request().get_status() == RequestStatus::COMPLETED || connection->inactive)
                     {
                         response_event_manager.remove_socket(id);
-                        response_sending_connections.erase(id);
+                        response_sending_connections.erase(response_it);
                         {
                             std::lock_guard<std::mutex> lock(completed_connections_mutex);
-                            completed_connections.push(conn_id);
+                            completed_connections.push(connection);
                         }
                     }
                 }

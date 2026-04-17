@@ -7,6 +7,7 @@
 #include "logger.hpp"
 
 #include <map>
+#include <unordered_map>
 #include <queue>
 #include <string>
 #include <functional>
@@ -37,17 +38,19 @@ namespace http
         RequestHandler request_handler;
         // fd -> active connection state.
         std::map<int, HttpConnection> connections;
-        // event-manager id -> fd currently scheduled for response writes.
-        std::map<int, int> response_sending_connections;
+        // active-connection pointer -> fd (reverse index for O(1) cleanup lookup).
+        std::unordered_map<HttpConnection *, int> connection_ids;
+        // event-manager id -> connection currently scheduled for response writes.
+        std::map<int, HttpConnection *> response_sending_connections;
 
-        // fds ready to run request handler logic.
-        std::queue<int> waiting_for_handler_connections;
-        // fds with responses ready for the response thread.
-        std::queue<int> waiting_to_send_response;
+        // connections ready to run request handler logic.
+        std::queue<HttpConnection *> waiting_for_handler_connections;
+        // connections with responses ready for the response thread.
+        std::queue<HttpConnection *> waiting_to_send_response;
 
         std::mutex completed_connections_mutex;
-        // fds finished or failed and pending cleanup in event loop thread.
-        std::queue<int> completed_connections;
+        // connections finished or failed and pending cleanup in event loop thread.
+        std::queue<HttpConnection *> completed_connections;
 
         std::mutex handler_mutex;
         std::vector<std::thread> handler_threads;
