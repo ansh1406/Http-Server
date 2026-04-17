@@ -68,7 +68,7 @@ namespace http
         void set_status_code(int status_code) noexcept;
 
         /// @brief Sets the HTTP status message.
-        void set_status_message(const std::string &reason_phrase);
+        void set_reason_phrase(const std::string &reason_phrase);
 
         /// @brief Sets the body generator function.
         /// The function should write the body content into the provided data vector and return the number of bytes written.

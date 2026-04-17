@@ -107,13 +107,13 @@ int main()
         http::HttpServer server(config, [](const http::HttpRequest &req, http::HttpResponse &res) {
             if (req.method == "GET" && req.uri == "/hello") {
                 res.set_status_code(200);
-                res.set_status_message("OK");
+                res.set_reason_phrase("OK");
                 res.set_header("Content-Type", "text/plain");
                 std::string body = "Hello, World!";
                 res.set_body(std::vector<char>(body.begin(), body.end()));
             } else {
                 res.set_status_code(404);
-                res.set_status_message("Not Found");
+                res.set_reason_phrase("Not Found");
                 res.set_header("Content-Type", "text/plain");
                 std::string body = "Not Found";
                 res.set_body(std::vector<char>(body.begin(), body.end()));

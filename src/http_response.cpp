@@ -82,7 +82,7 @@ namespace http
 
     void HttpResponse::set_status_code(int status_code) noexcept { _status_code = status_code; }
 
-    void HttpResponse::set_status_message(const std::string &reason_phrase) { _reason_phrase = reason_phrase; }
+    void HttpResponse::set_reason_phrase(const std::string &reason_phrase) { _reason_phrase = reason_phrase; }
 
     void HttpResponse::set_header(const std::string &key, const std::string &value)
     {
