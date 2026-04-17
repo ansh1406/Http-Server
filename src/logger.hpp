@@ -21,6 +21,15 @@ namespace
 #endif
         return tm;
     }
+
+    std::string get_timestamped_log_filename()
+    {
+        const std::time_t now = std::time(nullptr);
+        const std::tm tm = get_local_time(now);
+        char filename[64] = {0};
+        std::strftime(filename, sizeof(filename), "HTTP_server_%Y%m%d_%H%M%S.log", &tm);
+        return std::string(filename);
+    }
 }
 
 class Logger
@@ -60,10 +69,11 @@ public:
         }
     }
 
-    static void set_external_logging(const std::string &filename)
+    static void set_external_logging()
     {
         Logger &logger = get_instance();
         {
+            std::string filename = get_timestamped_log_filename();
             std::lock_guard<std::mutex> lock(logger.log_mutex);
             if (!logger.external_log)
             {

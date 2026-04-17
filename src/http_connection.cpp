@@ -488,12 +488,12 @@ void http::HttpConnection::send_response()
                 if (bytes_written != 0)
                 {
                     buffer_size += bytes_written;
-                    current_request.status = RequestStatus::HEADERS_DONE;
+                    current_request.status = RequestStatus::SENDING_RESPONSE_HEAD_DONE;
                 }
             }
         }
 
-        if (current_request.status == RequestStatus::HEADERS_DONE)
+        if (current_request.status == RequestStatus::SENDING_RESPONSE_HEAD_DONE)
         {
             long content_length = HttpParser::has_content_length_header(current_response.response.headers());
             bool has_chunked_encoding = HttpParser::has_transfer_encoding_chunked_header(current_response.response.headers());
@@ -505,7 +505,7 @@ void http::HttpConnection::send_response()
 
             if (content_length == -1 && !has_chunked_encoding)
             {
-                current_request.status = RequestStatus::COMPLETED;
+                current_request.status = RequestStatus::SENDING_BUFFER_FLUSHING;
             }
             else
             {
