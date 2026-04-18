@@ -26,12 +26,12 @@ namespace http
         int _status_code;
         /// @brief The HTTP reason phrase (e.g., "OK", "Not Found").
         std::string _reason_phrase;
-        /// @brief A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
+        /// @brief An unordered map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
         std::unordered_map<std::string, std::string> _headers;
 
         /// @brief Default constructor for HttpResponse.
         /// Initializes an empty HTTP response with HTTP version set to HTTP/1.1.
-        /// Verison is set to HTTP/1.1 by default and cannot be changed because of library constraints.
+        /// Version is set to HTTP/1.1 by default and cannot be changed because of library constraints.
         HttpResponse();
 
         /// @brief Constructor for HttpResponse with status code and message.
@@ -61,7 +61,8 @@ namespace http
         int status_code() const noexcept;
         /// @return HTTP status message as a std::string.
         const std::string &reason_phrase() const noexcept;
-        /// @return HTTP headers as a map of Header key(std::string)-value(std::string) pairs.
+        /// @return HTTP headers as an unordered map of Header key(std::string)-value(std::string) pairs.
+        /// Iteration order is not guaranteed.
         const std::unordered_map<std::string, std::string> &headers() const noexcept;
 
         /// @brief Sets the HTTP status code.
