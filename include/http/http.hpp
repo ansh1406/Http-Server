@@ -20,6 +20,7 @@ With its modular design, developers can easily extend its functionality to suit 
 #include <functional>
 #include <string>
 #include <stdexcept>
+#include <ctime>
 
 /// @brief Namespace for the HTTP server library. All the classes, functions, and constants related to the HTTP server are defined within this namespace.
 namespace http
