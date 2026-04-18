@@ -106,7 +106,7 @@ int main()
         config.port = 8080;
 
         http::HttpServer server(config, [](const http::HttpRequest &req, http::HttpResponse &res) {
-            if (req.method == "GET" && req.uri == "/hello") {
+            if (req.method() == "GET" && req.uri() == "/hello") {
                 res.set_status_code(200);
                 res.set_reason_phrase("OK");
                 res.set_header("Content-Type", "text/plain");
