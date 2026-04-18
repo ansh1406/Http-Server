@@ -60,7 +60,7 @@ configure_package_config_file(
 
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/httpConfigVersion.cmake"
-    VERSION 5.0.0
+    VERSION 5.1.0
     COMPATIBILITY SameMinorVersion
 )
 
