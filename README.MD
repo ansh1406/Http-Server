@@ -126,7 +126,7 @@ int main()
 
         http::HttpServer server(config, [](const http::HttpRequest &, http::HttpResponse &response) {
             response.set_status_code(http::status_codes::OK);
-            response.set_status_message("OK");
+            response.set_reason_phrase("OK");
             response.set_header("Content-Type", "text/plain");
 
             std::string body = "Hello, World!";
