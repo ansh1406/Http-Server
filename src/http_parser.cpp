@@ -122,9 +122,9 @@ http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<cha
     return request_line;
 }
 
-std::map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t cursor)
+std::unordered_map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t cursor)
 {
-    std::map<std::string, std::string> headers;
+    std::unordered_map<std::string, std::string> headers;
     while (cursor < raw_request.size())
     {
         if (raw_request[cursor] == '\r' && raw_request[cursor + 1] == '\n')

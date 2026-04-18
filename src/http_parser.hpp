@@ -39,7 +39,7 @@ namespace http
         /// @param raw_request vector of chars representing the raw HTTP request.
         /// @param cursor Starting position for parsing.
         /// @return Returns a map of header key-value pairs. Header names are normalized to lowercase.
-        static std::map<std::string, std::string> parse_headers(const std::vector<char> &raw_request, size_t cursor = 0);
+        static std::unordered_map<std::string, std::string> parse_headers(const std::vector<char> &raw_request, size_t cursor = 0);
 
         /// @brief Validates the request line format.
         /// @param request_line_byte_buffer vector of chars representing the request line.
