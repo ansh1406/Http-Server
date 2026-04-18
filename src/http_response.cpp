@@ -1,4 +1,5 @@
 #include "http/http_response.hpp"
+#include "http/http_constants.hpp"
 
 #include "http_response_reader.hpp"
 #include "http_response_builder.hpp"
@@ -37,10 +38,10 @@ namespace http
         ResponseBodyStream body_stream;
     };
 
-    HttpResponse::HttpResponse() : _version("HTTP/1.1"), _status_code(0), _reason_phrase(""), pimpl(new Impl()) {}
+    HttpResponse::HttpResponse() : _version(http::versions::HTTP_1_1), _status_code(0), _reason_phrase(""), pimpl(new Impl()) {}
 
     HttpResponse::HttpResponse(int status_code, const std::string &reason_phrase)
-        : _version("HTTP/1.1"), _status_code(status_code), _reason_phrase(reason_phrase), pimpl(new Impl()) {}
+        : _version(http::versions::HTTP_1_1), _status_code(status_code), _reason_phrase(reason_phrase), pimpl(new Impl()) {}
 
     HttpResponse::HttpResponse(HttpResponse &&other) noexcept
         : _version(std::move(other._version)),
