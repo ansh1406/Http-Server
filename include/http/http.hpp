@@ -20,6 +20,7 @@ With its modular design, developers can easily extend its functionality to suit 
 #include <functional>
 #include <string>
 #include <stdexcept>
+#include <ctime>
 
 /// @brief Namespace for the HTTP server library. All the classes, functions, and constants related to the HTTP server are defined within this namespace.
 namespace http
@@ -79,8 +80,8 @@ namespace http
         HttpServer(const HttpServer &) = delete;
         HttpServer &operator=(const HttpServer &) = delete;
 
-        HttpServer(HttpServer &&) = default;
-        HttpServer &operator=(HttpServer &&) = default;
+        HttpServer(HttpServer &&other) noexcept;
+        HttpServer &operator=(HttpServer &&other) noexcept;
 
         ~HttpServer();
 
@@ -105,15 +106,15 @@ int main()
         config.port = 8080;
 
         http::HttpServer server(config, [](const http::HttpRequest &req, http::HttpResponse &res) {
-            if (req.method == "GET" && req.uri == "/hello") {
+            if (req.method() == "GET" && req.uri() == "/hello") {
                 res.set_status_code(200);
-                res.set_status_message("OK");
+                res.set_reason_phrase("OK");
                 res.set_header("Content-Type", "text/plain");
                 std::string body = "Hello, World!";
                 res.set_body(std::vector<char>(body.begin(), body.end()));
             } else {
                 res.set_status_code(404);
-                res.set_status_message("Not Found");
+                res.set_reason_phrase("Not Found");
                 res.set_header("Content-Type", "text/plain");
                 std::string body = "Not Found";
                 res.set_body(std::vector<char>(body.begin(), body.end()));

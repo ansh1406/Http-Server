@@ -5,7 +5,7 @@
 #define HTTP_REQUEST_HPP
 
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <stdexcept>
 namespace http
@@ -68,8 +68,8 @@ namespace http
         std::string _uri;
         /// @brief The HTTP version (e.g., HTTP/1.1).
         std::string _version;
-        /// @brief A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
-        std::map<std::string, std::string> _headers;
+        /// @brief An unordered map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
+        std::unordered_map<std::string, std::string> _headers;
         /// @brief The body of the HTTP request, stored as a stream of bytes. It will be empty for requests that do not have a body.
         RequestBodyStream _body;
 
@@ -98,8 +98,9 @@ namespace http
         /// @return The HTTP version (e.g., HTTP/1.1) as a std::string.
         const std::string &version() const noexcept;
 
-        /// @return The HTTP headers as a map of header key(std::string)-value(std::string) pairs.
-        const std::map<std::string, std::string> &headers() const noexcept;
+        /// @return The HTTP headers as an unordered map of header key(std::string)-value(std::string) pairs.
+        /// Iteration order is not guaranteed.
+        const std::unordered_map<std::string, std::string> &headers() const noexcept;
 
         /// @return The body of the HTTP request.
         const RequestBodyStream &body() const noexcept;

@@ -7,7 +7,7 @@
 #include "http_constants.hpp"
 
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <functional>
 
@@ -26,19 +26,12 @@ namespace http
         int _status_code;
         /// @brief The HTTP reason phrase (e.g., "OK", "Not Found").
         std::string _reason_phrase;
-        /// @brief A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
-        std::map<std::string, std::string> _headers;
-
-    public:
-        /// @brief A function type for generating the body of an HTTP response.
-        /// This function should write the body content into the provided data vector and return the number of bytes written.
-        /// If the body streaming is complete, the function should return -1.
-        /// Successive calls are expected to continue where the previous call ended.
-        using WriterFunction = std::function<long(std::vector<char> &data)>;
+        /// @brief An unordered map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
+        std::unordered_map<std::string, std::string> _headers;
 
         /// @brief Default constructor for HttpResponse.
         /// Initializes an empty HTTP response with HTTP version set to HTTP/1.1.
-        /// Verison is set to HTTP/1.1 by default and cannot be changed because of library constraints.
+        /// Version is set to HTTP/1.1 by default and cannot be changed because of library constraints.
         HttpResponse();
 
         /// @brief Constructor for HttpResponse with status code and message.
@@ -46,6 +39,13 @@ namespace http
         /// @param reason_phrase The HTTP status message (e.g., "OK", "Not Found").
         explicit HttpResponse(int status_code,
                               const std::string &reason_phrase);
+
+    public:
+        /// @brief A function type for generating the body of an HTTP response.
+        /// This function should write the body content into the provided data vector and return the number of bytes written.
+        /// If the body streaming is complete, the function should return -1.
+        /// Successive calls are expected to continue where the previous call ended.
+        using WriterFunction = std::function<long(std::vector<char> &data)>;
 
         ~HttpResponse();
 
@@ -61,14 +61,15 @@ namespace http
         int status_code() const noexcept;
         /// @return HTTP status message as a std::string.
         const std::string &reason_phrase() const noexcept;
-        /// @return HTTP headers as a map of Header key(std::string)-value(std::string) pairs.
-        const std::map<std::string, std::string> &headers() const noexcept;
+        /// @return HTTP headers as an unordered map of Header key(std::string)-value(std::string) pairs.
+        /// Iteration order is not guaranteed.
+        const std::unordered_map<std::string, std::string> &headers() const noexcept;
 
         /// @brief Sets the HTTP status code.
         void set_status_code(int status_code) noexcept;
 
         /// @brief Sets the HTTP status message.
-        void set_status_message(const std::string &reason_phrase);
+        void set_reason_phrase(const std::string &reason_phrase);
 
         /// @brief Sets the body generator function.
         /// The function should write the body content into the provided data vector and return the number of bytes written.
@@ -88,6 +89,7 @@ namespace http
         void set_header(const std::string &key, const std::string &value);
 
         friend struct HttpResponseReader;
+        friend struct HttpResponseBuilder;
     };
 }
 

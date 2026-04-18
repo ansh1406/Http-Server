@@ -98,6 +98,22 @@ http::HttpServer::~HttpServer()
     delete pimpl;
 }
 
+http::HttpServer::HttpServer(HttpServer &&other) noexcept : pimpl(other.pimpl)
+{
+    other.pimpl = nullptr;
+}
+
+http::HttpServer &http::HttpServer::operator=(HttpServer &&other) noexcept
+{
+    if (this != &other)
+    {
+        delete pimpl;
+        pimpl = other.pimpl;
+        other.pimpl = nullptr;
+    }
+    return *this;
+}
+
 void http::HttpServer::start()
 {
     pimpl->start_event_loop();

@@ -6,6 +6,7 @@
 
 #include <string>
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 namespace http
@@ -38,7 +39,7 @@ namespace http
         /// @param raw_request vector of chars representing the raw HTTP request.
         /// @param cursor Starting position for parsing.
         /// @return Returns a map of header key-value pairs. Header names are normalized to lowercase.
-        static std::map<std::string, std::string> parse_headers(const std::vector<char> &raw_request, size_t cursor = 0);
+        static std::unordered_map<std::string, std::string> parse_headers(const std::vector<char> &raw_request, size_t cursor = 0);
 
         /// @brief Validates the request line format.
         /// @param request_line_byte_buffer vector of chars representing the request line.
@@ -49,11 +50,13 @@ namespace http
         /// @param headers map of header key-value pairs.
         /// @return Returns parsed Content-Length value, or -1 if header is absent.
         static long has_content_length_header(const std::map<std::string, std::string> &headers);
+        static long has_content_length_header(const std::unordered_map<std::string, std::string> &headers);
 
         /// @brief Checks if the header list contains a Transfer-Encoding header with chunked value as it's last value.
         /// @param headers map of header key-value pairs.
         /// @return Returns true only if the final Transfer-Encoding token is "chunked".
         static bool has_transfer_encoding_chunked_header(const std::map<std::string, std::string> &headers);
+        static bool has_transfer_encoding_chunked_header(const std::unordered_map<std::string, std::string> &headers);
 
         /// @brief Encodes the response status line into the buffer.
         /// @param version Http version string (e.g., "HTTP/1.1").

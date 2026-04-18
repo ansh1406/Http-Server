@@ -24,6 +24,69 @@ namespace
         http::headers::IF_MATCH,
         http::headers::IF_NONE_MATCH,
     };
+
+    template <typename HeaderContainer>
+    bool has_transfer_encoding_chunked_header_impl(const HeaderContainer &headers)
+    {
+        auto it = headers.find(http::headers::TRANSFER_ENCODING);
+        if (it != headers.end())
+        {
+            const std::string &value = it->second;
+
+            size_t last_comma = value.rfind(',');
+
+            std::string last_token;
+            if (last_comma == std::string::npos)
+            {
+                last_token = value;
+            }
+            else
+            {
+                last_token = value.substr(last_comma + 1);
+            }
+
+            size_t start = last_token.find_first_not_of(" \t");
+            size_t end = last_token.find_last_not_of(" \t");
+
+            if (start != std::string::npos)
+            {
+                last_token = last_token.substr(start, end - start + 1);
+            }
+            else
+            {
+                last_token.clear();
+            }
+
+            if (last_token == "chunked")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    template <typename HeaderContainer>
+    long has_content_length_header_impl(const HeaderContainer &headers)
+    {
+        auto it = headers.find(http::headers::CONTENT_LENGTH);
+        if (it != headers.end())
+        {
+            try
+            {
+                size_t content_length = std::stol(it->second);
+                if (content_length < 0)
+                {
+                    throw http::exceptions::InvalidContentLength();
+                }
+                return content_length;
+            }
+            catch (...)
+            {
+                throw http::exceptions::InvalidContentLength();
+            }
+        }
+        return -1;
+    }
 }
 
 http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<char> &raw_request, size_t cursor)
@@ -59,9 +122,9 @@ http::HttpRequestLine http::HttpParser::parse_request_line(const std::vector<cha
     return request_line;
 }
 
-std::map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t cursor)
+std::unordered_map<std::string, std::string> http::HttpParser::parse_headers(const std::vector<char> &raw_request, size_t cursor)
 {
-    std::map<std::string, std::string> headers;
+    std::unordered_map<std::string, std::string> headers;
     while (cursor < raw_request.size())
     {
         if (raw_request[cursor] == '\r' && raw_request[cursor + 1] == '\n')
@@ -133,63 +196,22 @@ bool http::HttpParser::validate_request_line(const std::vector<char> &request_li
 
 bool http::HttpParser::has_transfer_encoding_chunked_header(const std::map<std::string, std::string> &headers)
 {
-    auto it = headers.find(http::headers::TRANSFER_ENCODING);
-    if (it != headers.end())
-    {
-        const std::string &value = it->second;
-
-        size_t last_comma = value.rfind(',');
-
-        std::string last_token;
-        if (last_comma == std::string::npos)
-        {
-            last_token = value;
-        }
-        else
-        {
-            last_token = value.substr(last_comma + 1);
-        }
-
-        size_t start = last_token.find_first_not_of(" \t");
-        size_t end = last_token.find_last_not_of(" \t");
-
-        if (start != std::string::npos)
-        {
-            last_token = last_token.substr(start, end - start + 1);
-        }
-        else
-        {
-            last_token.clear();
-        }
-
-        if (last_token == "chunked")
-        {
-            return true;
-        }
-    }
-    return false;
+    return has_transfer_encoding_chunked_header_impl(headers);
 }
 
 long http::HttpParser::has_content_length_header(const std::map<std::string, std::string> &headers)
 {
-    auto it = headers.find(http::headers::CONTENT_LENGTH);
-    if (it != headers.end())
-    {
-        try
-        {
-            size_t content_length = std::stol(it->second);
-            if (content_length < 0)
-            {
-                throw http::exceptions::InvalidContentLength();
-            }
-            return content_length;
-        }
-        catch (...)
-        {
-            throw http::exceptions::InvalidContentLength();
-        }
-    }
-    return -1;
+    return has_content_length_header_impl(headers);
+}
+
+bool http::HttpParser::has_transfer_encoding_chunked_header(const std::unordered_map<std::string, std::string> &headers)
+{
+    return has_transfer_encoding_chunked_header_impl(headers);
+}
+
+long http::HttpParser::has_content_length_header(const std::unordered_map<std::string, std::string> &headers)
+{
+    return has_content_length_header_impl(headers);
 }
 
 size_t http::HttpParser::encode_response_status_line(const std::string &version, int status_code, const std::string &reason_phrase, std::vector<char> &buffer, size_t cursor)

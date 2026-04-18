@@ -139,6 +139,6 @@ namespace http
     const std::string &HttpRequest::method() const noexcept { return _method; }
     const std::string &HttpRequest::uri() const noexcept { return _uri; }
     const std::string &HttpRequest::version() const noexcept { return _version; }
-    const std::map<std::string, std::string> &HttpRequest::headers() const noexcept { return _headers; }
+    const std::unordered_map<std::string, std::string> &HttpRequest::headers() const noexcept { return _headers; }
     const HttpRequest::RequestBodyStream &HttpRequest::body() const noexcept { return _body; }
 }
