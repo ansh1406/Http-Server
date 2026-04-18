@@ -80,7 +80,7 @@ namespace http
 
     const std::string &HttpResponse::reason_phrase() const noexcept { return _reason_phrase; }
 
-    const std::map<std::string, std::string> &HttpResponse::headers() const noexcept { return _headers; }
+    const std::unordered_map<std::string, std::string> &HttpResponse::headers() const noexcept { return _headers; }
 
     void HttpResponse::set_status_code(int status_code) noexcept { _status_code = status_code; }
 

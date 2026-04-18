@@ -7,7 +7,7 @@
 #include "tcp.hpp"
 
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <functional>
 #include <ctime>
@@ -82,7 +82,7 @@ namespace http
             long content_length = -1;
             long remaining_content_length = -1;
 
-            std::map<std::string, std::string>::const_iterator currently_sending_header;
+            std::unordered_map<std::string, std::string>::const_iterator currently_sending_header;
 
             bool has_fixed_length_body() const
             {

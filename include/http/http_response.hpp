@@ -7,7 +7,7 @@
 #include "http_constants.hpp"
 
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <functional>
 
@@ -27,7 +27,7 @@ namespace http
         /// @brief The HTTP reason phrase (e.g., "OK", "Not Found").
         std::string _reason_phrase;
         /// @brief A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
-        std::map<std::string, std::string> _headers;
+        std::unordered_map<std::string, std::string> _headers;
 
         /// @brief Default constructor for HttpResponse.
         /// Initializes an empty HTTP response with HTTP version set to HTTP/1.1.
@@ -62,7 +62,7 @@ namespace http
         /// @return HTTP status message as a std::string.
         const std::string &reason_phrase() const noexcept;
         /// @return HTTP headers as a map of Header key(std::string)-value(std::string) pairs.
-        const std::map<std::string, std::string> &headers() const noexcept;
+        const std::unordered_map<std::string, std::string> &headers() const noexcept;
 
         /// @brief Sets the HTTP status code.
         void set_status_code(int status_code) noexcept;
