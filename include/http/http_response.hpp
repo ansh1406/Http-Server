@@ -29,13 +29,6 @@ namespace http
         /// @brief A map of HTTP headers. The keys are header names (case-insensitive), and the values are header values.
         std::map<std::string, std::string> _headers;
 
-    public:
-        /// @brief A function type for generating the body of an HTTP response.
-        /// This function should write the body content into the provided data vector and return the number of bytes written.
-        /// If the body streaming is complete, the function should return -1.
-        /// Successive calls are expected to continue where the previous call ended.
-        using WriterFunction = std::function<long(std::vector<char> &data)>;
-
         /// @brief Default constructor for HttpResponse.
         /// Initializes an empty HTTP response with HTTP version set to HTTP/1.1.
         /// Verison is set to HTTP/1.1 by default and cannot be changed because of library constraints.
@@ -46,6 +39,13 @@ namespace http
         /// @param reason_phrase The HTTP status message (e.g., "OK", "Not Found").
         explicit HttpResponse(int status_code,
                               const std::string &reason_phrase);
+
+    public:
+        /// @brief A function type for generating the body of an HTTP response.
+        /// This function should write the body content into the provided data vector and return the number of bytes written.
+        /// If the body streaming is complete, the function should return -1.
+        /// Successive calls are expected to continue where the previous call ended.
+        using WriterFunction = std::function<long(std::vector<char> &data)>;
 
         ~HttpResponse();
 
@@ -88,6 +88,7 @@ namespace http
         void set_header(const std::string &key, const std::string &value);
 
         friend struct HttpResponseReader;
+        friend struct HttpResponseBuilder;
     };
 }
 

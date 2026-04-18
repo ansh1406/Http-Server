@@ -1,6 +1,7 @@
 #include "http/http_response.hpp"
 
 #include "http_response_reader.hpp"
+#include "http_response_builder.hpp"
 #include "data_stream.hpp"
 
 #include <vector>
@@ -202,7 +203,7 @@ namespace http
             [this](size_t bytes)
             {
                 this->buffer_cursor += bytes;
-                if(this->buffer_cursor == this->buffer_size)
+                if (this->buffer_cursor == this->buffer_size)
                 {
                     this->buffer_cursor = 0;
                     this->buffer_size = 0;
@@ -212,6 +213,16 @@ namespace http
                     throw std::overflow_error("ResponseBodyStream: Cursor advanced beyond buffer size.");
                 }
             });
+    }
+
+    HttpResponse HttpResponseBuilder::build()
+    {
+        return HttpResponse();
+    }
+
+    HttpResponse HttpResponseBuilder::build(int status_code, const std::string &reason_phrase)
+    {
+        return HttpResponse(status_code, reason_phrase);
     }
 
     long HttpResponseReader::read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer, size_t max_size)

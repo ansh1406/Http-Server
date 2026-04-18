@@ -90,7 +90,7 @@ namespace http
             }
 
         public:
-            CurrentResponse() = default;
+            CurrentResponse(HttpResponse &&response) : response(std::move(response)) {}
             friend class HttpConnection;
         };
 
