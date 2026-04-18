@@ -79,8 +79,8 @@ namespace http
         HttpServer(const HttpServer &) = delete;
         HttpServer &operator=(const HttpServer &) = delete;
 
-        HttpServer(HttpServer &&) = default;
-        HttpServer &operator=(HttpServer &&) = default;
+        HttpServer(HttpServer &&other) noexcept;
+        HttpServer &operator=(HttpServer &&other) noexcept;
 
         ~HttpServer();
 
