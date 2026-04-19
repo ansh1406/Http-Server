@@ -43,6 +43,7 @@ namespace http
     ///  - port The port number on which the HTTP server will listen for incoming connections. It is an unsigned short integer. Default is 8080 for this library.
     ///  - max_pending_connections The maximum number of pending connections that the server can have in its queue. This parameter controls how many incoming connections can be waiting to be accepted before the server starts rejecting new connections. It is an unsigned integer. Default is 128 for this library.
     ///  - max_concurrent_connections The maximum number of concurrent connections that the server can handle at any given time. It is an unsigned integer. If the number of active connections exceeds this limit, the server may start rejecting new connections until some of the existing connections are closed. Default is 128 for this library.
+    ///  - max_request_body_size The maximum request body size in bytes. Requests exceeding this size are rejected with 413 Payload Too Large. Default is 1 MiB for this library.
     ///  - inactive_connection_timeout_in_seconds The timeout duration in seconds for inactive connections. If a connection remains idle (i.e., no data is sent or received) for longer than this duration, the server may close the connection to free up resources. It is a time_t value. Default is 60 seconds for this library.
     ///  - enable_logging A boolean flag indicating whether to enable logging. If set to true, the server will log information about incoming requests, responses, and other events. If set to false, the server will not log any information. The default value is false. Default is false for this library.
     ///  - external_logging A boolean flag indicating whether to enable external logging. If set to true, the server will log information about incoming requests, responses, and other events to an external logging system. If set to false, the server will log to stdout and stderr. Default is false for this library.
@@ -54,6 +55,8 @@ namespace http
         unsigned int max_pending_connections = 128;
         /// Maximum concurrent active connections.
         unsigned int max_concurrent_connections = 128;
+        /// Maximum accepted request body size in bytes.
+        size_t max_request_body_size = 1024 * 1024;
         /// Idle timeout for a connection, in seconds.
         time_t inactive_connection_timeout_in_seconds = 60;
         /// Enables built-in logging.

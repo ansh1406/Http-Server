@@ -57,6 +57,7 @@ namespace http
             bool has_chunked_body = false;
             long content_length = -1;
             long remaining_content_length = -1;
+            long total_body_bytes_read = 0;
             // Cursor into body bytes consumed from the shared connection buffer.
             long body_stream_cursor = 0;
             // Cursor marking end of currently available body bytes in buffer.
@@ -109,7 +110,7 @@ namespace http
         void read_from_client();
         void read_request_line();
         void read_headers();
-        void read_body();
+        void read_body(size_t max_request_body_size);
         long read_fixed_body();
         long read_chunksize_line();
         long read_body_chunk();
@@ -137,7 +138,7 @@ namespace http
         /// Reads from socket and advances parsing until request line + headers are complete.
         void read_and_build_request_head();
         /// Executes user handler against the currently parsed request.
-        void handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept;
+        void handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler, size_t max_request_body_size) noexcept;
 
         /// Serializes and sends response head/body according to current response state.
         void send_response();

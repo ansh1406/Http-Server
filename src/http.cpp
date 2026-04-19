@@ -294,7 +294,7 @@ void http::HttpServer::Impl::initialize_handler_threads()
                         continue;
                     }
 
-                    connection->handle_request(request_handler);
+                    connection->handle_request(request_handler, config.max_request_body_size);
                     if (connection->inactive)
                     {
                         {
