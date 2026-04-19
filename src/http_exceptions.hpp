@@ -100,10 +100,10 @@ namespace http
                 : std::runtime_error("HTTP: Payload too large" + (message.empty() ? "" : "\n" + message)) {}
         };
 
-        class StautsLineTooLong : public std::runtime_error
+        class StatusLineTooLong : public std::runtime_error
         {
         public:
-            StautsLineTooLong(const std::string &message = "")
+            StatusLineTooLong(const std::string &message = "")
                 : std::runtime_error("HTTP: Status line too long" + (message.empty() ? "" : "\n" + message)) {}
         };
     }
