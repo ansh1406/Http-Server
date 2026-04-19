@@ -14,7 +14,7 @@ http::HttpConnection::CurrentRequest::CurrentRequest() : request(std::move(HttpR
 
 http::HttpConnection::HttpConnection(tcp::ConnectionSocket &&socket) : client_socket(std::move(socket)), current_request(), current_response(HttpResponseBuilder::build()), last_activity_time(time(nullptr)) {}
 
-void http::HttpConnection::handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler) noexcept
+void http::HttpConnection::handle_request(std::function<void(const http::HttpRequest &, http::HttpResponse &)> &request_handler, size_t max_request_body_size) noexcept
 {
     try
     {
@@ -23,6 +23,7 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
         current_request.content_length = content_length;
         current_request.remaining_content_length = content_length;
         current_request.has_chunked_body = has_chunked_body;
+        current_request.total_body_bytes_read = 0;
 
         reposition_buffer();
         if (current_request.has_chunked_body && current_request.content_length != -1)
@@ -44,10 +45,15 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
 
         log_info(current_request.request.method() + " " + current_request.request.uri());
 
+        if (current_request.content_length != -1 && (size_t)current_request.content_length > max_request_body_size)
+        {
+            throw http::exceptions::PayloadTooLarge();
+        }
+
         DataStream body_stream;
 
         body_stream.set_stream_updater(
-            [this]()
+            [this, max_request_body_size]()
             {
                 if (buffer_cursor == buffer_size)
                 {
@@ -55,7 +61,7 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
                     buffer_size = 0;
                     read_from_client();
                 }
-                read_body();
+                read_body(max_request_body_size);
             });
 
         body_stream.set_stream_view_provider(
@@ -89,6 +95,12 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
             request_handler(current_request.request, current_response.response);
             current_request.status = RequestStatus::REQUEST_HANDLING_DONE;
         }
+        catch (const http::exceptions::PayloadTooLarge &e)
+        {
+            log_error(std::string("Error handling request: ") + e.what());
+            current_request.status = RequestStatus::CLIENT_ERROR;
+            current_response.response = http::HttpResponseBuilder::build(http::status_codes::PAYLOAD_TOO_LARGE, "Payload Too Large");
+        }
         catch (const std::exception &e)
         {
             log_error(std::string("Error handling request: ") + e.what());
@@ -102,9 +114,16 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
             current_response.response = http::HttpResponseBuilder::build(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
         }
     }
+    catch (const http::exceptions::PayloadTooLarge &e)
+    {
+        log_error(std::string(e.what()));
+        current_request.status = RequestStatus::CLIENT_ERROR;
+        current_response.response = http::HttpResponseBuilder::build(http::status_codes::PAYLOAD_TOO_LARGE, "Payload Too Large");
+    }
     catch (...)
     {
-        // Suppress all.
+        current_request.status = RequestStatus::SERVER_ERROR;
+        current_response.response = http::HttpResponseBuilder::build(http::status_codes::INTERNAL_SERVER_ERROR, "Internal Server Error");
     }
 }
 
@@ -319,7 +338,7 @@ void http::HttpConnection::read_headers()
     }
 }
 
-void http::HttpConnection::read_body()
+void http::HttpConnection::read_body(size_t max_request_body_size)
 {
     if (current_request.status == RequestStatus::REQUEST_READING_DONE)
     {
@@ -338,6 +357,10 @@ void http::HttpConnection::read_body()
             }
             else if (chunk_size > 0)
             {
+                if ((size_t)current_request.total_body_bytes_read + (size_t)chunk_size > max_request_body_size)
+                {
+                    throw http::exceptions::PayloadTooLarge();
+                }
                 current_request.remaining_content_length = chunk_size;
             }
         }
@@ -346,10 +369,15 @@ void http::HttpConnection::read_body()
             long bytes_read = read_body_chunk();
             current_request.remaining_content_length -= bytes_read;
             current_request.body_end_cursor += bytes_read;
+            current_request.total_body_bytes_read += bytes_read;
+            if ((size_t)current_request.total_body_bytes_read > max_request_body_size)
+            {
+                throw http::exceptions::PayloadTooLarge();
+            }
             if (current_request.remaining_content_length == 0)
             {
                 buffer_cursor += 2; // To skip the \r\n after chunk data
-                read_body();
+                read_body(max_request_body_size);
             }
         }
     }
@@ -358,6 +386,11 @@ void http::HttpConnection::read_body()
         long bytes_read = read_fixed_body();
         current_request.remaining_content_length -= bytes_read;
         current_request.body_end_cursor += bytes_read;
+        current_request.total_body_bytes_read += bytes_read;
+        if ((size_t)current_request.total_body_bytes_read > max_request_body_size)
+        {
+            throw http::exceptions::PayloadTooLarge();
+        }
         if (current_request.remaining_content_length == 0)
         {
             current_request.status = RequestStatus::REQUEST_READING_DONE;
