@@ -463,7 +463,7 @@ void http::HttpConnection::send_response()
             else
             {
                 log_error("Status line too large.");
-                throw http::exceptions::StautsLineTooLong();
+                throw http::exceptions::StatusLineTooLong();
             }
         }
 
