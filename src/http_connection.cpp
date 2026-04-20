@@ -278,7 +278,6 @@ void http::HttpConnection::read_request_line()
 {
     try
     {
-        long pos = buffer_cursor;
         bool found_end_of_request_line{false};
         for (; buffer_cursor < buffer_size - 1; buffer_cursor++)
         {
@@ -286,7 +285,9 @@ void http::HttpConnection::read_request_line()
             if (buffer[buffer_cursor] == '\r' && buffer[buffer_cursor + 1] == '\n')
             {
                 found_end_of_request_line = true;
-                buffer_cursor = pos + 2;
+                buffer_cursor += 2;
+                current_request.request_line_bytes_read += 2;
+                current_request.last_header_end = buffer_cursor;
                 break;
             }
 
@@ -308,7 +309,6 @@ void http::HttpConnection::read_headers()
 {
     try
     {
-        long pos = buffer_cursor;
         bool found_end_of_headers{false};
         for (; buffer_cursor < buffer_size - 1; buffer_cursor++)
         {
@@ -484,6 +484,27 @@ void http::HttpConnection::send_response()
             buffer_cursor = 0;
             current_response.response.set_header("Connection", "close");
             current_request.status = RequestStatus::SENDING_STATUS_LINE;
+
+            long content_length = HttpParser::has_content_length_header(current_response.response.headers());
+            bool has_chunked_encoding = HttpParser::has_transfer_encoding_chunked_header(current_response.response.headers());
+
+            if (content_length != -1 && has_chunked_encoding)
+            {
+                throw http::exceptions::BothContentLengthAndChunked();
+            }
+
+            if (content_length == -1 && !has_chunked_encoding)
+            {
+                current_response.response.set_header(http::headers::CONTENT_LENGTH, "0");
+                current_response.content_length = 0;
+                current_response.remaining_content_length = 0;
+            }
+            else
+            {
+                current_response.has_chunked_body = has_chunked_encoding;
+                current_response.content_length = content_length;
+                current_response.remaining_content_length = content_length;
+            }
         }
 
         if (current_request.status == RequestStatus::SENDING_STATUS_LINE)
@@ -531,25 +552,7 @@ void http::HttpConnection::send_response()
 
         if (current_request.status == RequestStatus::SENDING_RESPONSE_HEAD_DONE)
         {
-            long content_length = HttpParser::has_content_length_header(current_response.response.headers());
-            bool has_chunked_encoding = HttpParser::has_transfer_encoding_chunked_header(current_response.response.headers());
-
-            if (content_length != -1 && has_chunked_encoding)
-            {
-                throw http::exceptions::BothContentLengthAndChunked();
-            }
-
-            if (content_length == -1 && !has_chunked_encoding)
-            {
-                current_request.status = RequestStatus::SENDING_BUFFER_FLUSHING;
-            }
-            else
-            {
-                current_response.has_chunked_body = has_chunked_encoding;
-                current_response.content_length = content_length;
-                current_response.remaining_content_length = content_length;
-                current_request.status = RequestStatus::SENDING_BODY;
-            }
+            current_request.status = RequestStatus::SENDING_BODY;
         }
 
         if (current_request.status == RequestStatus::SENDING_BODY)
