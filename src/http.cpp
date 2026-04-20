@@ -227,10 +227,19 @@ void http::HttpServer::Impl::mark_inactive_connections()
         for (auto &it : connections)
         {
             auto &conn = it.second;
-            if (conn.idle_time() > config.inactive_connection_timeout_in_seconds)
+            if (!conn.inactive && conn.idle_time() > config.inactive_connection_timeout_in_seconds)
             {
                 log_info("Connection timed out: " + conn.get_ip() + ":" + std::to_string(conn.get_port()));
                 conn.inactive = true;
+
+                if (conn.get_current_request().get_status() < RequestStatus::REQUEST_HANDLING_DONE)
+                {
+                    request_event_manager.remove_socket(it.first);
+                    {
+                        std::lock_guard<std::mutex> lock(completed_connections_mutex);
+                        completed_connections.push(&conn);
+                    }
+                }
             }
         }
     }
