@@ -54,6 +54,10 @@ namespace http
             HttpRequest request;
             RequestStatus status;
 
+            long request_line_bytes_read = 0;
+            long header_bytes_read = 0;
+            long last_header_end = 0;
+
             bool has_chunked_body = false;
             long content_length = -1;
             long remaining_content_length = -1;
