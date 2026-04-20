@@ -164,6 +164,8 @@ void http::HttpConnection::read_and_build_request_head()
                 }
 
                 current_request.status = RequestStatus::READING_HEADERS;
+                read_headers();
+                reposition_buffer();
             }
         }
         if (current_request.status == RequestStatus::READING_HEADERS)
@@ -278,16 +280,17 @@ void http::HttpConnection::read_request_line()
     {
         long pos = buffer_cursor;
         bool found_end_of_request_line{false};
-        for (; pos < buffer_size - 1; pos++)
+        for (; buffer_cursor < buffer_size - 1; buffer_cursor++)
         {
-            if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
+            current_request.request_line_bytes_read++;
+            if (buffer[buffer_cursor] == '\r' && buffer[buffer_cursor + 1] == '\n')
             {
                 found_end_of_request_line = true;
                 buffer_cursor = pos + 2;
                 break;
             }
 
-            if (pos >= http::sizes::MAX_REQUEST_LINE_SIZE)
+            if (current_request.request_line_bytes_read >= http::sizes::MAX_REQUEST_LINE_SIZE)
             {
                 throw http::exceptions::RequestLineTooLong();
             }
@@ -307,24 +310,23 @@ void http::HttpConnection::read_headers()
     {
         long pos = buffer_cursor;
         bool found_end_of_headers{false};
-        static long last_header_end = 0;
-        static long header_start = buffer_cursor;
-        for (; pos < buffer_size - 1; pos++)
+        for (; buffer_cursor < buffer_size - 1; buffer_cursor++)
         {
-
-            if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
+            current_request.header_bytes_read++;
+            if (buffer[buffer_cursor] == '\r' && buffer[buffer_cursor + 1] == '\n')
             {
-                if (pos == last_header_end + 1)
+                if (buffer_cursor == current_request.last_header_end + 2)
                 {
                     found_end_of_headers = true;
-                    buffer_cursor = pos + 2;
+                    buffer_cursor += 2;
+                    current_request.header_bytes_read += 2;
                     break;
                 }
-                pos += 1;
-                last_header_end = pos;
+                current_request.last_header_end = buffer_cursor;
+                buffer_cursor++;
             }
 
-            if ((pos - header_start) >= http::sizes::MAX_HEADER_SIZE)
+            if (current_request.header_bytes_read >= http::sizes::MAX_HEADER_SIZE)
             {
                 throw http::exceptions::HeadersTooLarge();
             }
@@ -645,6 +647,7 @@ void http::HttpConnection::send_to_client()
 void http::HttpConnection::reposition_buffer()
 {
     long remaining_data = buffer_size - buffer_cursor;
+    current_request.last_header_end -= buffer_cursor;
     memmove(buffer.data(), buffer.data() + buffer_cursor, remaining_data);
     buffer_cursor = 0;
     buffer_size = remaining_data;
