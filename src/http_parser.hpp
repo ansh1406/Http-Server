@@ -8,6 +8,7 @@
 #include <map>
 #include <unordered_map>
 #include <vector>
+#include <cstdint>
 
 namespace http
 {
@@ -49,7 +50,7 @@ namespace http
         /// @brief Checks if the header list contains a Content-Length header and returns its value if present.
         /// @param headers unordered_map of header key-value pairs.
         /// @return Returns parsed Content-Length value, or -1 if header is absent.
-        static long has_content_length_header(const std::unordered_map<std::string, std::string> &headers);
+        static int64_t has_content_length_header(const std::unordered_map<std::string, std::string> &headers);
 
         /// @brief Checks if the header list contains a Transfer-Encoding header with chunked value as it's last value.
         /// @param headers unordered_map of header key-value pairs.

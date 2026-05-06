@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <utility>
+#include <cstdint>
 
 namespace http
 {
@@ -137,7 +138,7 @@ namespace http
     {
         size_t bytes_left = data.size();
         auto writer =
-            [data, bytes_left](std::vector<char> &buffer) mutable -> long
+            [data, bytes_left](std::vector<char> &buffer) mutable -> int64_t
         {
             if (bytes_left == 0)
             {
@@ -179,7 +180,7 @@ namespace http
         this->data_stream.set_stream_updater(
             [this, writer]()
             {
-                long bytes_written = writer(this->buffer);
+                int64_t bytes_written = writer(this->buffer);
                 if (bytes_written == -1)
                 {
                     this->is_stream_closed = true;
@@ -226,7 +227,7 @@ namespace http
         return HttpResponse(status_code, reason_phrase);
     }
 
-    long HttpResponseReader::read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer, size_t max_size)
+    int64_t HttpResponseReader::read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer, size_t max_size)
     {
         if (response.pimpl->body_stream.pimpl->data_stream.is_stream_closed())
         {
