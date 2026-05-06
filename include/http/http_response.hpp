@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 #include <functional>
+#include <cstdint>
 
 namespace http
 {
@@ -45,7 +46,7 @@ namespace http
         /// This function should write the body content into the provided data vector and return the number of bytes written.
         /// If the body streaming is complete, the function should return -1.
         /// Successive calls are expected to continue where the previous call ended.
-        using WriterFunction = std::function<long(std::vector<char> &data)>;
+        using WriterFunction = std::function<int64_t(std::vector<char> &data)>;
 
         ~HttpResponse();
 

@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <stdexcept>
 #include <cstring>
+#include <cstdint>
 
 namespace
 {
@@ -65,14 +66,14 @@ bool http::HttpParser::has_transfer_encoding_chunked_header(const std::unordered
     return false;
 }
 
-long http::HttpParser::has_content_length_header(const std::unordered_map<std::string, std::string> &headers)
+int64_t http::HttpParser::has_content_length_header(const std::unordered_map<std::string, std::string> &headers)
 {
     auto it = headers.find(http::headers::CONTENT_LENGTH);
     if (it != headers.end())
     {
         try
         {
-            size_t content_length = std::stol(it->second);
+            int64_t content_length = std::stoll(it->second);
             if (content_length < 0)
             {
                 throw http::exceptions::InvalidContentLength();
@@ -178,7 +179,7 @@ bool http::HttpParser::validate_request_line(const std::vector<char> &request_li
     // Method SP Request-URI SP HTTP-Version CRLF
     // SP count should be 2 in a valid request line
     int space_count = 0;
-    for (long pos = 0; pos < (long)request_line_byte_buffer.size(); pos++)
+    for (int64_t pos = 0; pos < (int64_t)request_line_byte_buffer.size(); pos++)
     {
         if (request_line_byte_buffer[pos] == ' ')
         {

@@ -6,6 +6,8 @@
 
 #include "http/http_response.hpp"
 
+#include <cstdint>
+
 namespace http
 {
     /// @brief A utility class for reading the body stream of an HTTP response.
@@ -18,7 +20,7 @@ namespace http
         /// @param buffer_pointer The position in the buffer where reading should start.
         /// @param max_size The maximum number of bytes to read.
         /// @return Bytes read for this call. Returns -1 when the response body is fully consumed.
-        static long read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer = 0, size_t max_size = static_cast<size_t>(-1));
+        static int64_t read_body_stream(const HttpResponse &response, std::vector<char> &buffer, size_t buffer_pointer = 0, size_t max_size = static_cast<size_t>(-1));
     };
 }
 

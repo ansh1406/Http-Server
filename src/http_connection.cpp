@@ -9,6 +9,7 @@
 
 #include <cstring>
 #include <vector>
+#include <cstdint>
 
 http::HttpConnection::CurrentRequest::CurrentRequest() : request(std::move(HttpRequestBuilder::build())), status(RequestStatus::CONNECTION_ESTABLISHED) {}
 
@@ -18,7 +19,7 @@ void http::HttpConnection::handle_request(std::function<void(const http::HttpReq
 {
     try
     {
-        long content_length = http::HttpParser::has_content_length_header(current_request.request.headers());
+        int64_t content_length = http::HttpParser::has_content_length_header(current_request.request.headers());
         bool has_chunked_body = http::HttpParser::has_transfer_encoding_chunked_header(current_request.request.headers());
         current_request.content_length = content_length;
         current_request.remaining_content_length = content_length;
@@ -351,7 +352,7 @@ void http::HttpConnection::read_body(size_t max_request_body_size)
     {
         if (current_request.remaining_content_length == 0)
         {
-            long chunk_size = read_chunksize_line();
+            int64_t chunk_size = read_chunksize_line();
             if (chunk_size == 0)
             {
                 current_request.status = RequestStatus::REQUEST_READING_DONE;
@@ -368,7 +369,7 @@ void http::HttpConnection::read_body(size_t max_request_body_size)
         }
         if (current_request.remaining_content_length > 0)
         {
-            long bytes_read = read_body_chunk();
+            int64_t bytes_read = read_body_chunk();
             current_request.remaining_content_length -= bytes_read;
             current_request.body_end_cursor += bytes_read;
             current_request.total_body_bytes_read += bytes_read;
@@ -385,7 +386,7 @@ void http::HttpConnection::read_body(size_t max_request_body_size)
     }
     else if (current_request.content_length != -1 && current_request.remaining_content_length > 0)
     {
-        long bytes_read = read_fixed_body();
+        int64_t bytes_read = read_fixed_body();
         current_request.remaining_content_length -= bytes_read;
         current_request.body_end_cursor += bytes_read;
         current_request.total_body_bytes_read += bytes_read;
@@ -400,22 +401,22 @@ void http::HttpConnection::read_body(size_t max_request_body_size)
     }
 }
 
-long http::HttpConnection::read_fixed_body()
+int64_t http::HttpConnection::read_fixed_body()
 {
     size_t bytes_to_read = std::min((size_t)(buffer.size() - buffer_cursor), (size_t)current_request.remaining_content_length);
     buffer_cursor += bytes_to_read;
     return bytes_to_read;
 }
 
-long http::HttpConnection::read_chunksize_line() // For chunked transfer encoding
+int64_t http::HttpConnection::read_chunksize_line() // For chunked transfer encoding
 {
     try
     {
-        long pos = buffer_cursor;
+        int64_t pos = buffer_cursor;
         while (true)
         {
             bool found_end_of_chunk_size_line{false};
-            for (; pos < (long)buffer.size() - 1; pos++)
+            for (; pos < (int64_t)buffer.size() - 1; pos++)
             {
                 if (buffer[pos] == '\r' && buffer[pos + 1] == '\n')
                 {
@@ -440,7 +441,7 @@ long http::HttpConnection::read_chunksize_line() // For chunked transfer encodin
     }
 }
 
-long http::HttpConnection::read_body_chunk()
+int64_t http::HttpConnection::read_body_chunk()
 {
     size_t bytes_to_read = std::min((size_t)(buffer.size() - buffer_cursor), (size_t)current_request.remaining_content_length);
     memmove(buffer.data() + current_request.body_end_cursor, buffer.data() + buffer_cursor, bytes_to_read);
@@ -485,7 +486,7 @@ void http::HttpConnection::send_response()
             current_response.response.set_header("Connection", "close");
             current_request.status = RequestStatus::SENDING_STATUS_LINE;
 
-            long content_length = HttpParser::has_content_length_header(current_response.response.headers());
+            int64_t content_length = HttpParser::has_content_length_header(current_response.response.headers());
             bool has_chunked_encoding = HttpParser::has_transfer_encoding_chunked_header(current_response.response.headers());
 
             if (content_length != -1 && has_chunked_encoding)
@@ -559,7 +560,7 @@ void http::HttpConnection::send_response()
         {
             if (current_response.has_fixed_length_body())
             {
-                long bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size);
+                int64_t bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size);
                 if (bytes_read == -1)
                 {
                     if (current_response.remaining_content_length != 0)
@@ -580,7 +581,7 @@ void http::HttpConnection::send_response()
                 if (buffer.size() - buffer_size > 128) // Placeholder
                 {
                     size_t maximum_chunk_size = buffer.size() - buffer_size - 6 - 2;                                                                // 6 is Empty space for chunk size in hex and \r\n, 2 is for the ending \r\n after chunk data.
-                    long bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size + 6, maximum_chunk_size); // 6 is Empty space for chunk size in hex and \r\n.
+                    int64_t bytes_read = HttpResponseReader::read_body_stream(current_response.response, buffer, buffer_size + 6, maximum_chunk_size); // 6 is Empty space for chunk size in hex and \r\n.
                     if (bytes_read > 0)
                     {
                         size_t bytes_encoded = HttpParser::encode_chunksize_line(bytes_read, 4, buffer, buffer_size); // in HHHH format.
@@ -649,7 +650,7 @@ void http::HttpConnection::send_to_client()
 
 void http::HttpConnection::reposition_buffer()
 {
-    long remaining_data = buffer_size - buffer_cursor;
+    int64_t remaining_data = buffer_size - buffer_cursor;
     current_request.last_header_end -= buffer_cursor;
     memmove(buffer.data(), buffer.data() + buffer_cursor, remaining_data);
     buffer_cursor = 0;

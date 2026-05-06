@@ -11,6 +11,7 @@
 #include <vector>
 #include <functional>
 #include <ctime>
+#include <cstdint>
 
 namespace http
 {
@@ -54,18 +55,18 @@ namespace http
             HttpRequest request;
             RequestStatus status;
 
-            long request_line_bytes_read = 0;
-            long header_bytes_read = 0;
-            long last_header_end = 0;
+            int64_t request_line_bytes_read = 0;
+            int64_t header_bytes_read = 0;
+            int64_t last_header_end = 0;
 
             bool has_chunked_body = false;
-            long content_length = -1;
-            long remaining_content_length = -1;
-            long total_body_bytes_read = 0;
+            int64_t content_length = -1;
+            int64_t remaining_content_length = -1;
+            int64_t total_body_bytes_read = 0;
             // Cursor into body bytes consumed from the shared connection buffer.
-            long body_stream_cursor = 0;
+            int64_t body_stream_cursor = 0;
             // Cursor marking end of currently available body bytes in buffer.
-            long body_end_cursor = 0;
+            int64_t body_end_cursor = 0;
 
         public:
             CurrentRequest();
@@ -84,8 +85,8 @@ namespace http
         private:
             HttpResponse response;
             bool has_chunked_body = false;
-            long content_length = -1;
-            long remaining_content_length = -1;
+            int64_t content_length = -1;
+            int64_t remaining_content_length = -1;
 
             std::unordered_map<std::string, std::string>::const_iterator currently_sending_header;
 
@@ -106,8 +107,8 @@ namespace http
         CurrentRequest current_request;
         CurrentResponse current_response;
         time_t last_activity_time = 0;
-        long buffer_cursor = 0;
-        long buffer_size = 0;
+        int64_t buffer_cursor = 0;
+        int64_t buffer_size = 0;
         size_t parser_cursor = 0;
         int peer_status = ConnectionStatus::IDLE;
 
@@ -115,9 +116,9 @@ namespace http
         void read_request_line();
         void read_headers();
         void read_body(size_t max_request_body_size);
-        long read_fixed_body();
-        long read_chunksize_line();
-        long read_body_chunk();
+        int64_t read_fixed_body();
+        int64_t read_chunksize_line();
+        int64_t read_body_chunk();
         void log_info(const std::string &message) const;
         void log_warning(const std::string &message) const;
         void log_error(const std::string &message) const;
