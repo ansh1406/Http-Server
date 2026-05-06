@@ -47,15 +47,13 @@ namespace http
         static bool validate_request_line(const std::vector<char> &request_line_byte_buffer);
 
         /// @brief Checks if the header list contains a Content-Length header and returns its value if present.
-        /// @param headers map of header key-value pairs.
+        /// @param headers unordered_map of header key-value pairs.
         /// @return Returns parsed Content-Length value, or -1 if header is absent.
-        static long has_content_length_header(const std::map<std::string, std::string> &headers);
         static long has_content_length_header(const std::unordered_map<std::string, std::string> &headers);
 
         /// @brief Checks if the header list contains a Transfer-Encoding header with chunked value as it's last value.
-        /// @param headers map of header key-value pairs.
+        /// @param headers unordered_map of header key-value pairs.
         /// @return Returns true only if the final Transfer-Encoding token is "chunked".
-        static bool has_transfer_encoding_chunked_header(const std::map<std::string, std::string> &headers);
         static bool has_transfer_encoding_chunked_header(const std::unordered_map<std::string, std::string> &headers);
 
         /// @brief Encodes the response status line into the buffer.
