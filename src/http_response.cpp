@@ -136,9 +136,8 @@ namespace http
 
     HttpResponse::Impl::ResponseBodyStream::ResponseBodyStream(const std::vector<char> &data) : ResponseBodyStream()
     {
-        size_t bytes_left = data.size();
         auto writer =
-            [data, bytes_left](std::vector<char> &buffer) mutable -> int64_t
+            [data, bytes_left = data.size()](std::vector<char> &buffer) mutable -> int64_t
         {
             if (bytes_left == 0)
             {

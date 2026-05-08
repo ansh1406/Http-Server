@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(HttpServer LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -32,7 +32,6 @@ if(WIN32)
     target_link_libraries(http ws2_32)
 endif()
 
-target_compile_features(http PUBLIC cxx_std_11)
 set_target_properties(http PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Install the library and headers
